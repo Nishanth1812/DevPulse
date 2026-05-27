@@ -14,8 +14,10 @@ const (
 	ConfigEnv             = "DEVPULSE_CONFIG"
 	KeyringService        = "devpulse"
 	GeminiAPIKeyAccount   = "gemini-api-key-1"
-	defaultModelFast      = "gemini-1.5-flash"
-	defaultModelDeep      = "gemini-1.5-pro"
+	defaultModelFast      = "gemini-2.5-flash-lite"
+	defaultModelDeep      = "gemini-2.5-flash"
+	legacyModelFast       = "gemini-1.5-flash"
+	legacyModelDeep       = "gemini-1.5-pro"
 	defaultCacheHours     = 24
 	defaultFuzzyThreshold = 50
 	dirPermission         = 0o700
@@ -70,7 +72,11 @@ func Load() (*Manager, error) {
 	if _, err := toml.DecodeFile(configPath, &manager.config); err != nil {
 		return nil, fmt.Errorf("decode config file %q: %w", configPath, err)
 	}
-	manager.applyDefaults()
+	if manager.applyDefaults() {
+		if err := manager.Save(); err != nil {
+			return nil, err
+		}
+	}
 
 	return manager, nil
 }
@@ -118,22 +124,38 @@ func defaultConfig() Config {
 	}
 }
 
-func (m *Manager) applyDefaults() {
+func (m *Manager) applyDefaults() bool {
+	changed := false
 	if m.config.RegisteredRepos == nil {
 		m.config.RegisteredRepos = make(map[string]string)
+		changed = true
 	}
 	if strings.TrimSpace(m.config.ModelFast) == "" {
 		m.config.ModelFast = defaultModelFast
+		changed = true
+	}
+	if m.config.ModelFast == legacyModelFast {
+		m.config.ModelFast = defaultModelFast
+		changed = true
 	}
 	if strings.TrimSpace(m.config.ModelDeep) == "" {
 		m.config.ModelDeep = defaultModelDeep
+		changed = true
+	}
+	if m.config.ModelDeep == legacyModelDeep {
+		m.config.ModelDeep = defaultModelDeep
+		changed = true
 	}
 	if m.config.CacheDurationHours <= 0 {
 		m.config.CacheDurationHours = defaultCacheHours
+		changed = true
 	}
 	if m.config.FuzzyThreshold == 0 {
 		m.config.FuzzyThreshold = defaultFuzzyThreshold
+		changed = true
 	}
+
+	return changed
 }
 
 func defaultBaseDir() (string, error) {
