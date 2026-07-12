@@ -51,3 +51,21 @@ type FocusResponse struct {
 	// Ranked is the list of repositories ordered by completion proximity.
 	Ranked []FocusItem `json:"ranked"`
 }
+
+// DecisionItem is a single decision in the file's history.
+type DecisionItem struct {
+	// Date is the commit date (YYYY-MM-DD).
+	Date string `json:"date"`
+	// Description explains what changed and why.
+	Description string `json:"description"`
+}
+
+// WhyResponse is the structured output produced by the AI for the why command.
+type WhyResponse struct {
+	// FilePurpose describes the overall purpose of the file.
+	FilePurpose string `json:"file_purpose"`
+	// MajorDecisions lists significant changes made to the file over time.
+	MajorDecisions []DecisionItem `json:"major_decisions"`
+	// CurrentState describes the file's current role and condition.
+	CurrentState string `json:"current_state"`
+}

@@ -62,6 +62,20 @@ func ParseFocusResponse(raw string) (FocusResponse, error) {
 	return r, nil
 }
 
+// ParseWhyResponse strips markdown fences if present, validates the JSON,
+// and unmarshals it into a WhyResponse. Returns an error if file_purpose is missing.
+func ParseWhyResponse(raw string) (WhyResponse, error) {
+	clean := stripFences(raw)
+	var r WhyResponse
+	if err := json.Unmarshal([]byte(clean), &r); err != nil {
+		return WhyResponse{}, fmt.Errorf("ai: parse why response: %w", err)
+	}
+	if strings.TrimSpace(r.FilePurpose) == "" {
+		return WhyResponse{}, fmt.Errorf("ai: why response missing required field: file_purpose")
+	}
+	return r, nil
+}
+
 // stripFences removes markdown code fences that models sometimes wrap JSON in.
 // Handles ```json\n{...}\n```, ```\n{...}\n```, ```json{...}```, and bare JSON.
 // Rather than relying on a newline after the opening fence (which may be absent),

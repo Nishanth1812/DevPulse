@@ -221,3 +221,40 @@ func BuildFocusPrompt(repos []models.RepoData, goals models.GoalsData) string {
 	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
 	return b.String()
 }
+
+// BuildWhyPrompt constructs the AI prompt for file-level commit archaeology.
+// It embeds the commit history for a specific file and asks for a narrative.
+func BuildWhyPrompt(repoName, filePath string, commits []models.CommitSummary) string {
+	var b strings.Builder
+
+	b.WriteString("You are a software development assistant.\n")
+	b.WriteString("You are given the full commit history for a single file. Produce a narrative of every significant decision made in it.\n")
+	b.WriteString("Respond with ONLY a valid JSON object matching this exact schema — no markdown, no explanation:\n\n")
+	b.WriteString(`{"file_purpose":"string","major_decisions":[{"date":"YYYY-MM-DD","description":"string"}],"current_state":"string"}`)
+	b.WriteString("\n\n")
+
+	b.WriteString(fmt.Sprintf("## Repository: %s\n", repoName))
+	b.WriteString(fmt.Sprintf("## File: %s\n\n", filePath))
+
+	if len(commits) > 0 {
+		b.WriteString("## Commit History (oldest first)\n")
+		for _, c := range commits {
+			sha := c.SHA
+			if len(sha) > 7 {
+				sha = sha[:7]
+			}
+			b.WriteString(fmt.Sprintf("### %s (%s, %s)\n", sha, c.Author, c.Timestamp.Format("2006-01-02")))
+			b.WriteString(fmt.Sprintf("Message: %s\n", c.Message))
+			if c.DiffSnippet != "" {
+				b.WriteString("```diff\n")
+				b.WriteString(c.DiffSnippet)
+				b.WriteString("\n```\n")
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString("Identify the major decisions and evolution of this file. Focus on design choices, refactors, and purpose changes.\n")
+	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
+	return b.String()
+}

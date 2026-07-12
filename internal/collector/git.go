@@ -88,3 +88,86 @@ func CollectCommits(
 
 	return commits, branch, headSHA, nil
 }
+
+// CollectFileCommits returns the commit history for a specific file path.
+// Commits are ordered oldest-first to support the "why" narrative.
+func CollectFileCommits(repoPath, filePath string, maxCommits int) ([]models.CommitSummary, error) {
+	repo, err := git.PlainOpen(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	head, err := repo.Head()
+	if err != nil {
+		return nil, err
+	}
+
+	refIter, err := repo.Log(&git.LogOptions{
+		From: head.Hash(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var commits []models.CommitSummary
+
+	err = refIter.ForEach(func(commit *object.Commit) error {
+		if maxCommits > 0 && len(commits) >= maxCommits {
+			return storer.ErrStop
+		}
+
+		// Check if this commit touched the file
+		stats, err := commit.Stats()
+		if err != nil {
+			return nil
+		}
+
+		touched := false
+		for _, stat := range stats {
+			if stat.Name == filePath {
+				touched = true
+				break
+			}
+		}
+		if !touched {
+			return nil
+		}
+
+		// Get the diff for this file
+		var diffText string
+		parent, err := commit.Parent(0)
+		if err == nil {
+			patch, err := parent.Patch(commit)
+			if err == nil {
+				// Filter patch to only the target file
+				for _, stat := range patch.Stats() {
+					if stat.Name == filePath {
+						diffText = compressor.CompressDiff(patch.String())
+						break
+					}
+				}
+			}
+		}
+
+		commits = append(commits, models.CommitSummary{
+			SHA:         commit.Hash.String(),
+			Message:     strings.TrimSpace(commit.Message),
+			Author:      commit.Author.Name,
+			Timestamp:   commit.Author.When,
+			DiffSnippet: diffText,
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Reverse to oldest-first
+	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
+		commits[i], commits[j] = commits[j], commits[i]
+	}
+
+	return commits, nil
+}
