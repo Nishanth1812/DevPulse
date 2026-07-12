@@ -59,6 +59,16 @@ func init() {
 			regex:   regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`),
 			replace: "[REDACTED CREDENTIAL]",
 		},
+		{
+			name:    "generic-api-key-unquoted",
+			regex:   regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password|passwd)\s*[:=]\s*\S+`),
+			replace: "[REDACTED CREDENTIAL]",
+		},
+		{
+			name:    "connection-string",
+			regex:   regexp.MustCompile(`(?i)[a-z][a-z0-9+.\-]*://[^\s:@/]+:[^\s@/]+@`),
+			replace: "[REDACTED CONNECTION STRING]",
+		},
 	}
 }
 

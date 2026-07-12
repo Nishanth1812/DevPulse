@@ -78,6 +78,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("commit: AI call failed: %w", err)
 	}
 
+	responseScan := security.ScanPrompt(raw)
+	if responseScan.ContainsSecrets {
+		logger.Log("WARN", "commit", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
+		raw = responseScan.RedactedPrompt
+	}
+
 	result, err := ai.ParseCommitResponse(raw)
 	if err != nil {
 		logger.LogError("commit", err)

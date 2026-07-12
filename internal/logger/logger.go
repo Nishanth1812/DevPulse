@@ -128,6 +128,8 @@ func init() {
 		regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
 		regexp.MustCompile(`xox[baprs]-[0-9a-zA-Z-]{10,}`),
 		regexp.MustCompile(`eyJ[a-zA-Z0-9_-]{10,}\.(?:[a-zA-Z0-9_-]{10,}\.){1,2}[a-zA-Z0-9_-]{10,}`),
+		regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password|passwd)\s*[:=]\s*\S+`),
+		regexp.MustCompile(`(?i)[a-z][a-z0-9+.\-]*://[^\s:@/]+:[^\s@/]+@`),
 	}
 }
 
