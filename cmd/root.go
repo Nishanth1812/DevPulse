@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	version = "dev"
-	verbose bool
-	noColor bool
-	manager *config.Manager
+	version  = "dev"
+	verbose  bool
+	noColor  bool
+	provider string
+	manager  *config.Manager
 )
 
 var rootCmd = &cobra.Command{
@@ -52,6 +53,7 @@ func init() {
 	rootCmd.SetVersionTemplate("devpulse {{.Version}}\n")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable color and interactive terminal effects")
+	rootCmd.PersistentFlags().StringVarP(&provider, "provider", "p", "groq", "AI provider (groq or gemini)")
 
 	rootCmd.AddCommand(registerCmd)
 	rootCmd.AddCommand(unregisterCmd)

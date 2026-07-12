@@ -11,7 +11,7 @@ import (
 func (m *Manager) InitializeGoalsFile() (created bool, path string, hasAPIKey bool, err error) {
 	path = filepath.Join(m.baseDir, "goals.md")
 	if _, err := os.Stat(path); err == nil {
-		hasAPIKey, keyErr := HasGeminiAPIKey()
+		hasAPIKey, keyErr := HasAPIKey("groq")
 		if keyErr != nil {
 			return false, path, false, keyErr
 		}
@@ -40,7 +40,7 @@ func (m *Manager) InitializeGoalsFile() (created bool, path string, hasAPIKey bo
 		return false, path, false, fmt.Errorf("write goals file: %w", err)
 	}
 
-	hasAPIKey, err = HasGeminiAPIKey()
+	hasAPIKey, err = HasAPIKey("groq")
 	if err != nil {
 		return true, path, false, err
 	}

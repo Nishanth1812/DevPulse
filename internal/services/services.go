@@ -1,12 +1,13 @@
 package services
 
 import (
-	"devpulse/internal/collector"
-	"devpulse/internal/models"
-	"devpulse/internal/utils"
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/Nishanth1812/devpulse/internal/collector"
+	"github.com/Nishanth1812/devpulse/internal/models"
+	"github.com/Nishanth1812/devpulse/internal/utils"
 )
 
 type CollectService struct{}

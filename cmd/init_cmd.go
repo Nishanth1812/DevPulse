@@ -31,7 +31,7 @@ var initCmd = &cobra.Command{
 		}
 
 		if !hasAPIKey {
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "No API key stored. Run: devpulse auth --add")
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "No API key stored. Run: devpulse auth")
 			return err
 		}
 

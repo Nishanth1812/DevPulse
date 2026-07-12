@@ -1,0 +1,137 @@
+package cmd
+
+import (
+	"fmt"
+	"io"
+
+	"github.com/Nishanth1812/devpulse/internal/ai"
+	"github.com/Nishanth1812/devpulse/internal/collector"
+	"github.com/Nishanth1812/devpulse/internal/config"
+	"github.com/Nishanth1812/devpulse/internal/logger"
+	"github.com/Nishanth1812/devpulse/internal/models"
+	"github.com/Nishanth1812/devpulse/internal/output"
+	"github.com/spf13/cobra"
+)
+
+var briefCmd = &cobra.Command{
+	Use:   "brief <repo-name>",
+	Short: "Generate an AI-powered development brief for a registered repository",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runBrief,
+}
+
+func init() {
+	rootCmd.AddCommand(briefCmd)
+}
+
+func runBrief(cmd *cobra.Command, args []string) error {
+	repoName := args[0]
+
+	repoPath, ok := manager.RepositoryPath(repoName)
+	if !ok {
+		return fmt.Errorf("repository %q is not registered; run: devpulse register <path>", repoName)
+	}
+
+	apiKey, err := config.GetAPIKey(provider)
+	if err != nil {
+		logger.LogError("brief", err)
+		return err
+	}
+
+	client, err := ai.NewClient(provider, apiKey, "")
+	if err != nil {
+		return fmt.Errorf("brief: initialize AI client: %w", err)
+	}
+
+	collectSpinner := output.NewSpinner(noColor)
+	collectSpinner.Start("Collecting repository data…")
+	repoData, err := collector.CollectRepo(repoPath, models.CollectOptions{
+		MaxCommits:  20,
+		IncludeDiff: true,
+	})
+	collectSpinner.Stop()
+	if err != nil {
+		logger.LogError("brief", err)
+		return fmt.Errorf("brief: collect repository: %w", err)
+	}
+
+	goalsSpinner := output.NewSpinner(noColor)
+	goalsSpinner.Start("Loading goals…")
+	goals, err := collector.ParseGoals()
+	goalsSpinner.Stop()
+	if err != nil {
+		logger.Log("DEBUG", "brief", "goals not found: "+err.Error())
+		goals = models.GoalsData{}
+	}
+
+	prompt := ai.BuildBriefPrompt(repoData, goals)
+
+	aiSpinner := output.NewSpinner(noColor)
+	aiSpinner.Start("Generating brief…")
+	raw, err := client.Generate(cmd.Context(), prompt)
+	aiSpinner.Stop()
+	if err != nil {
+		logger.LogError("brief", err)
+		return fmt.Errorf("brief: AI call failed: %w", err)
+	}
+
+	brief, err := ai.ParseBriefResponse(raw)
+	if err != nil {
+		logger.LogError("brief", err)
+		return err
+	}
+
+	logger.Log("INFO", "brief", fmt.Sprintf("repo=%s branch=%s provider=%s", repoData.Name, repoData.Branch, provider))
+	return renderBrief(cmd.OutOrStdout(), repoData, brief)
+}
+
+func renderBrief(w io.Writer, repo models.RepoData, b ai.BriefResponse) error {
+	if _, err := fmt.Fprintf(w, "\n=== Brief: %s (%s) ===\n\n", repo.Name, repo.Branch); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "%s\n", b.Summary); err != nil {
+		return err
+	}
+
+	if len(b.KeyChanges) > 0 {
+		if _, err := fmt.Fprintln(w, "\nKey Changes:"); err != nil {
+			return err
+		}
+		for _, c := range b.KeyChanges {
+			if _, err := fmt.Fprintf(w, "  • %s\n", c); err != nil {
+				return err
+			}
+		}
+	}
+
+	if b.CurrentFocus != "" {
+		if _, err := fmt.Fprintf(w, "\nCurrent Focus: %s\n", b.CurrentFocus); err != nil {
+			return err
+		}
+	}
+
+	if len(b.Blockers) > 0 {
+		if _, err := fmt.Fprintln(w, "\nBlockers:"); err != nil {
+			return err
+		}
+		for _, bl := range b.Blockers {
+			if _, err := fmt.Fprintf(w, "  ! %s\n", bl); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(b.NextSteps) > 0 {
+		if _, err := fmt.Fprintln(w, "\nNext Steps:"); err != nil {
+			return err
+		}
+		for _, ns := range b.NextSteps {
+			if _, err := fmt.Fprintf(w, "  → %s\n", ns); err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err := fmt.Fprintln(w)
+	return err
+}

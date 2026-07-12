@@ -1,11 +1,12 @@
 package collector
 
 import (
-	"devpulse/internal/models"
-	"devpulse/internal/utils"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Nishanth1812/devpulse/internal/models"
+	"github.com/Nishanth1812/devpulse/internal/utils"
 )
 
 func ParseGoals() (models.GoalsData, error) {

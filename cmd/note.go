@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"devpulse/internal/services"
 	"fmt"
 
+	"github.com/Nishanth1812/devpulse/internal/services"
 	"github.com/spf13/cobra"
 )
 

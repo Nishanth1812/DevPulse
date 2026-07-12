@@ -40,3 +40,9 @@ type GoalsData struct {
 	Deadlines []Deadline `json:"deadlines"`
 	Someday   string     `json:"someday"`
 }
+
+// RegisteredRepo represents a named repository registered with DevPulse.
+type RegisteredRepo struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}

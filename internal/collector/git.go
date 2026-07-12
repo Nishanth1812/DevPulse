@@ -1,11 +1,13 @@
 package collector
 
 import (
-	"devpulse/internal/compressor"
-	"devpulse/internal/models"
 	"strings"
 
+	"github.com/Nishanth1812/devpulse/internal/compressor"
+	"github.com/Nishanth1812/devpulse/internal/models"
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 )
 
 func CollectCommits(

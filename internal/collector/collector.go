@@ -1,12 +1,13 @@
 package collector
 
 import (
-	"devpulse/internal/compressor"
-	"devpulse/internal/models"
-	"devpulse/internal/utils"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Nishanth1812/devpulse/internal/compressor"
+	"github.com/Nishanth1812/devpulse/internal/models"
+	"github.com/Nishanth1812/devpulse/internal/utils"
 )
 
 var planFiles = []string{

@@ -13,7 +13,6 @@ import (
 const (
 	ConfigEnv             = "DEVPULSE_CONFIG"
 	KeyringService        = "devpulse"
-	GeminiAPIKeyAccount   = "gemini-api-key-1"
 	defaultModelFast      = "gemini-2.5-flash-lite"
 	defaultModelDeep      = "gemini-2.5-flash"
 	legacyModelFast       = "gemini-1.5-flash"

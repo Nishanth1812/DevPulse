@@ -74,6 +74,13 @@ func (m *Manager) UnregisterRepository(name string) error {
 	return nil
 }
 
+// RepositoryPath returns the absolute path for a registered repository name.
+// Returns false if the name is not registered.
+func (m *Manager) RepositoryPath(name string) (string, bool) {
+	path, ok := m.config.RegisteredRepos[name]
+	return path, ok
+}
+
 func samePath(left string, right string) bool {
 	left = filepath.Clean(left)
 	right = filepath.Clean(right)
