@@ -9,6 +9,7 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/Nishanth1812/devpulse/internal/output"
+	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 	}
 
 	prompt := ai.BuildCommitPrompt(diff)
+
+	scanResult := security.ScanPrompt(prompt)
+	if scanResult.ContainsSecrets {
+		logger.Log("WARN", "commit", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
+		prompt = scanResult.RedactedPrompt
+	}
 
 	spinner := output.NewSpinner(noColor)
 	spinner.Start("Generating commit message…")

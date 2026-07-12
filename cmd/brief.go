@@ -10,6 +10,7 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/Nishanth1812/devpulse/internal/output"
+	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
 )
 
@@ -65,6 +66,13 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	}
 
 	prompt := ai.BuildBriefPrompt(repoData, goals)
+
+	result := security.ScanPrompt(prompt)
+	if result.ContainsSecrets {
+		logger.Log("WARN", "brief", fmt.Sprintf("sensitive_content_redacted count=%d", len(result.Matches)))
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
+		prompt = result.RedactedPrompt
+	}
 
 	aiSpinner := output.NewSpinner(noColor)
 	aiSpinner.Start("Generating brief…")
