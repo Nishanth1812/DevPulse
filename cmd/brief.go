@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/Nishanth1812/devpulse/internal/ai"
+	"github.com/Nishanth1812/devpulse/internal/cache"
 	"github.com/Nishanth1812/devpulse/internal/collector"
 	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/logger"
@@ -12,6 +13,8 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/output"
 	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
+	"path/filepath"
+	"time"
 )
 
 var briefCmd = &cobra.Command{
@@ -54,6 +57,19 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.LogError("brief", err)
 		return fmt.Errorf("brief: collect repository: %w", err)
+	}
+
+	briefCache, cacheErr := cache.New(filepath.Join(manager.BaseDir(), "cache"))
+	if cacheErr != nil {
+		logger.Log("WARN", "brief", "cache_unavailable: "+cacheErr.Error())
+	}
+	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
+	if briefCache != nil {
+		if cached, ok := briefCache.Get(repoName, repoData.HeadSHA, provider, cacheMaxAge); ok {
+			logger.LogCacheEvent("brief", repoName, "hit")
+			return renderBrief(cmd.OutOrStdout(), repoData, cached)
+		}
+		logger.LogCacheEvent("brief", repoName, "miss")
 	}
 
 	goalsSpinner := output.NewSpinner(noColor)
@@ -105,6 +121,12 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.LogError("brief", err)
 		return err
+	}
+
+	if briefCache != nil {
+		if storeErr := briefCache.Put(repoName, repoData.HeadSHA, provider, brief); storeErr != nil {
+			logger.Log("WARN", "brief", "cache_store_failed: "+storeErr.Error())
+		}
 	}
 
 	logger.Log("INFO", "brief", fmt.Sprintf("repo=%s branch=%s provider=%s", repoData.Name, repoData.Branch, provider))

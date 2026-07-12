@@ -109,6 +109,11 @@ func (m *Manager) BaseDir() string {
 	return m.baseDir
 }
 
+// CacheDurationHours returns the configured cache lifetime in hours.
+func (m *Manager) CacheDurationHours() int {
+	return m.config.CacheDurationHours
+}
+
 func (m *Manager) LogsDir() string {
 	return filepath.Join(m.baseDir, "logs")
 }
