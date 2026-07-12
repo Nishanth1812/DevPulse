@@ -32,7 +32,12 @@ func (s *NoteService) Add(
 	text string,
 ) error {
 
-	path := utils.NotesPath(repo)
+	safeRepo, err := utils.SanitizeRepoName(repo)
+	if err != nil {
+		return err
+	}
+
+	path := utils.NotesPath(safeRepo)
 
 	file, err := os.OpenFile(
 		path,
@@ -58,9 +63,10 @@ func (s *NoteService) Add(
 }
 
 func (s *NoteService) List(repo string) (string, error) {
-	return utils.ReadFile(utils.NotesPath(repo))
-}
+	safeRepo, err := utils.SanitizeRepoName(repo)
+	if err != nil {
+		return "", err
+	}
 
-func (s *NoteService) Clear(repo string) error {
-	return os.Remove(utils.NotesPath(repo))
+	return utils.ReadFile(utils.NotesPath(safeRepo))
 }

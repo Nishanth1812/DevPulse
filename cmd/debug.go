@@ -13,7 +13,8 @@ var debugCmd = &cobra.Command{
 }
 
 var debugCollectCmd = &cobra.Command{
-	Use: "collect <repo-path>",
+	Use:  "collect <repo-path>",
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		service := services.CollectService{}

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,4 +48,22 @@ func GoalsPath() string {
 
 func DaysUntil(t time.Time) int {
 	return int(time.Until(t).Hours() / 24)
+}
+
+// SanitizeRepoName validates that a name is safe to use as a single filename
+// segment for note storage. It rejects empty names, names containing path
+// separators, or ".." segments, which would otherwise let a caller escape the
+// notes directory via path traversal (e.g. "../../.bashrc").
+func SanitizeRepoName(name string) (string, error) {
+	clean := strings.TrimSpace(name)
+	if clean == "" {
+		return "", fmt.Errorf("repo name cannot be empty")
+	}
+	if strings.Contains(clean, "..") {
+		return "", fmt.Errorf("repo name %q must not contain '..'", clean)
+	}
+	if strings.ContainsRune(clean, filepath.Separator) || strings.ContainsRune(clean, '/') {
+		return "", fmt.Errorf("repo name %q must not contain path separators", clean)
+	}
+	return clean, nil
 }

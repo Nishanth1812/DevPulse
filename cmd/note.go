@@ -12,7 +12,8 @@ var noteCmd = &cobra.Command{
 }
 
 var noteAddCmd = &cobra.Command{
-	Use: "add <repo> <text>",
+	Use:  "add <repo> <text>",
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		service := services.NoteService{}
@@ -29,7 +30,8 @@ var noteAddCmd = &cobra.Command{
 }
 
 var noteListCmd = &cobra.Command{
-	Use: "list <repo>",
+	Use:  "list <repo>",
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		service := services.NoteService{}
