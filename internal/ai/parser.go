@@ -34,6 +34,20 @@ func ParseCommitResponse(raw string) (CommitResponse, error) {
 	return r, nil
 }
 
+// ParseResumeResponse strips markdown fences if present, validates the JSON,
+// and unmarshals it into a ResumeResponse. Returns an error if what_was_built is missing.
+func ParseResumeResponse(raw string) (ResumeResponse, error) {
+	clean := stripFences(raw)
+	var r ResumeResponse
+	if err := json.Unmarshal([]byte(clean), &r); err != nil {
+		return ResumeResponse{}, fmt.Errorf("ai: parse resume response: %w", err)
+	}
+	if strings.TrimSpace(r.WhatWasBuilt) == "" {
+		return ResumeResponse{}, fmt.Errorf("ai: resume response missing required field: what_was_built")
+	}
+	return r, nil
+}
+
 // stripFences removes markdown code fences that models sometimes wrap JSON in.
 // Handles ```json\n{...}\n```, ```\n{...}\n```, ```json{...}```, and bare JSON.
 // Rather than relying on a newline after the opening fence (which may be absent),

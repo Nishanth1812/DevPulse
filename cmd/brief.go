@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -65,9 +66,12 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 	if briefCache != nil {
-		if cached, ok := briefCache.Get(repoName, repoData.HeadSHA, provider, cacheMaxAge); ok {
+		if rawJSON, ok := briefCache.GetRaw(repoName, repoData.HeadSHA, provider, "brief", cacheMaxAge); ok {
 			logger.LogCacheEvent("brief", repoName, "hit")
-			return renderBrief(cmd.OutOrStdout(), repoData, cached)
+			var cached ai.BriefResponse
+			if err := json.Unmarshal(rawJSON, &cached); err == nil {
+				return renderBrief(cmd.OutOrStdout(), repoData, cached)
+			}
 		}
 		logger.LogCacheEvent("brief", repoName, "miss")
 	}
@@ -124,8 +128,10 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	}
 
 	if briefCache != nil {
-		if storeErr := briefCache.Put(repoName, repoData.HeadSHA, provider, brief); storeErr != nil {
-			logger.Log("WARN", "brief", "cache_store_failed: "+storeErr.Error())
+		if data, err := json.Marshal(brief); err == nil {
+			if storeErr := briefCache.PutRaw(repoName, repoData.HeadSHA, provider, "brief", data); storeErr != nil {
+				logger.Log("WARN", "brief", "cache_store_failed: "+storeErr.Error())
+			}
 		}
 	}
 

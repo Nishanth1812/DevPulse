@@ -16,8 +16,20 @@ type BriefResponse struct {
 
 // CommitResponse is the structured output produced by the AI for the commit command.
 type CommitResponse struct {
-	// Subject is the first line of the commit message (≤72 chars, imperative mood).
+	// Subject is the first line of the commit message (<=72 chars, imperative mood).
 	Subject string `json:"subject"`
 	// Body is the optional extended description. May be an empty string.
 	Body string `json:"body"`
+}
+
+// ResumeResponse is the structured output produced by the AI for the resume command.
+type ResumeResponse struct {
+	// WhatWasBuilt summarises the work completed in recent commits.
+	WhatWasBuilt string `json:"what_was_built"`
+	// WhatIsIncomplete lists work that was started but not finished.
+	WhatIsIncomplete string `json:"what_is_incomplete"`
+	// BlockersDetected lists any blockers or risks identified in the diffs.
+	BlockersDetected []string `json:"blockers_detected"`
+	// NextStep is the recommended single next action.
+	NextStep string `json:"next_step"`
 }
