@@ -25,6 +25,10 @@ func init() {
 }
 
 func runCommit(cmd *cobra.Command, args []string) error {
+	if redactDiff {
+		return fmt.Errorf("commit: --redact-diff cannot be used with the commit command (diff is required to generate a message)")
+	}
+
 	diffBytes, err := exec.Command("git", "diff", "--staged").Output()
 	if err != nil {
 		return fmt.Errorf("commit: run git diff --staged: %w", err)

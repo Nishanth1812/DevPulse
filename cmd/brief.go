@@ -48,7 +48,7 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	collectSpinner.Start("Collecting repository data…")
 	repoData, err := collector.CollectRepo(repoPath, models.CollectOptions{
 		MaxCommits:  20,
-		IncludeDiff: true,
+		IncludeDiff: !redactDiff,
 	})
 	collectSpinner.Stop()
 	if err != nil {

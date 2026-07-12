@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	version  = "dev"
-	verbose  bool
-	noColor  bool
-	dryRun   bool
-	provider string
-	manager  *config.Manager
+	version    = "dev"
+	verbose    bool
+	noColor    bool
+	dryRun     bool
+	redactDiff bool
+	provider   string
+	manager    *config.Manager
 )
 
 var rootCmd = &cobra.Command{
@@ -55,6 +56,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable color and interactive terminal effects")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "print the prompt and estimated token count without making an API call")
+	rootCmd.PersistentFlags().BoolVar(&redactDiff, "redact-diff", false, "strip diff content from prompts (only commit messages and plan summaries are sent)")
 	rootCmd.PersistentFlags().StringVarP(&provider, "provider", "p", "groq", "AI provider (groq or gemini)")
 
 	rootCmd.AddCommand(registerCmd)
