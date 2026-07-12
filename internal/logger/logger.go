@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -117,9 +118,25 @@ func purgeOldLogs(logDir string, now time.Time) error {
 	return nil
 }
 
+var secretPatterns []*regexp.Regexp
+
+func init() {
+	secretPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----`),
+		regexp.MustCompile(`(?:ghp|gho|ghu|ghs|ghr)_[0-9a-zA-Z]{36,}`),
+		regexp.MustCompile(`sk-[a-zA-Z0-9]{20,}`),
+		regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+		regexp.MustCompile(`xox[baprs]-[0-9a-zA-Z-]{10,}`),
+		regexp.MustCompile(`eyJ[a-zA-Z0-9_-]{10,}\.(?:[a-zA-Z0-9_-]{10,}\.){1,2}[a-zA-Z0-9_-]{10,}`),
+	}
+}
+
 func sanitize(value string) string {
 	value = strings.ReplaceAll(value, "\r", " ")
 	value = strings.ReplaceAll(value, "\n", " ")
+	for _, re := range secretPatterns {
+		value = re.ReplaceAllString(value, "[REDACTED]")
+	}
 	return strings.TrimSpace(value)
 }
 
