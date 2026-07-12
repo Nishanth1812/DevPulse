@@ -67,11 +67,22 @@ func runBrief(cmd *cobra.Command, args []string) error {
 
 	prompt := ai.BuildBriefPrompt(repoData, goals)
 
-	result := security.ScanPrompt(prompt)
-	if result.ContainsSecrets {
-		logger.Log("WARN", "brief", fmt.Sprintf("sensitive_content_redacted count=%d", len(result.Matches)))
+	scanResult := security.ScanPrompt(prompt)
+	if scanResult.ContainsSecrets {
+		logger.Log("WARN", "brief", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
 		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = result.RedactedPrompt
+		prompt = scanResult.RedactedPrompt
+	}
+
+	if dryRun {
+		w := cmd.OutOrStdout()
+		estTokens := len(prompt) / 4
+		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
+		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
+		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
+		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
+		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+		return nil
 	}
 
 	aiSpinner := output.NewSpinner(noColor)

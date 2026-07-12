@@ -13,6 +13,7 @@ var (
 	version  = "dev"
 	verbose  bool
 	noColor  bool
+	dryRun   bool
 	provider string
 	manager  *config.Manager
 )
@@ -53,6 +54,7 @@ func init() {
 	rootCmd.SetVersionTemplate("devpulse {{.Version}}\n")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable color and interactive terminal effects")
+	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "print the prompt and estimated token count without making an API call")
 	rootCmd.PersistentFlags().StringVarP(&provider, "provider", "p", "groq", "AI provider (groq or gemini)")
 
 	rootCmd.AddCommand(registerCmd)

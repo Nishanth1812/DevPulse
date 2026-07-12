@@ -54,6 +54,17 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		prompt = scanResult.RedactedPrompt
 	}
 
+	if dryRun {
+		w := cmd.OutOrStdout()
+		estTokens := len(prompt) / 4
+		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
+		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
+		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
+		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
+		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+		return nil
+	}
+
 	spinner := output.NewSpinner(noColor)
 	spinner.Start("Generating commit message…")
 	raw, err := client.Generate(cmd.Context(), prompt)
