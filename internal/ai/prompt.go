@@ -156,3 +156,68 @@ func BuildResumePrompt(repo models.RepoData, goals models.GoalsData) string {
 	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
 	return b.String()
 }
+
+// BuildFocusPrompt constructs the AI prompt for cross-repo triage.
+// It embeds a summary of each registered repo and asks for a ranked list.
+func BuildFocusPrompt(repos []models.RepoData, goals models.GoalsData) string {
+	var b strings.Builder
+
+	b.WriteString("You are a software development assistant.\n")
+	b.WriteString("You are given summaries of multiple repositories. Rank them by how close each is to a working or shippable state.\n")
+	b.WriteString("Weight urgency by deadlines in the goals file.\n")
+	b.WriteString("Respond with ONLY a valid JSON object matching this exact schema — no markdown, no explanation:\n\n")
+	b.WriteString(`{"ranked":[{"repo_name":"string","rank_reason":"string","proximity_score":1,"urgency":false}]}`)
+	b.WriteString("\n\n")
+
+	for _, repo := range repos {
+		headSHA := repo.HeadSHA
+		if len(headSHA) > 7 {
+			headSHA = headSHA[:7]
+		}
+		b.WriteString(fmt.Sprintf("## %s (branch: %s, HEAD: %s)\n", repo.Name, repo.Branch, headSHA))
+
+		if repo.PlanSummary != "" {
+			b.WriteString("Plan: ")
+			// Truncate plan summary to keep prompt manageable
+			plan := strings.TrimSpace(repo.PlanSummary)
+			if len(plan) > 300 {
+				plan = plan[:300] + "..."
+			}
+			b.WriteString(plan)
+			b.WriteString("\n")
+		}
+
+		if len(repo.Commits) > 0 {
+			b.WriteString("Recent commits:\n")
+			limit := 5
+			if len(repo.Commits) < limit {
+				limit = len(repo.Commits)
+			}
+			for _, c := range repo.Commits[:limit] {
+				sha := c.SHA
+				if len(sha) > 7 {
+					sha = sha[:7]
+				}
+				b.WriteString(fmt.Sprintf("  - %s %s\n", sha, c.Message))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 {
+		b.WriteString("## Goals\n")
+		if goals.Now != "" {
+			b.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
+		}
+		if goals.Next != "" {
+			b.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
+		}
+		for _, d := range goals.Deadlines {
+			b.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
+	return b.String()
+}

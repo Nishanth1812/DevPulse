@@ -33,3 +33,21 @@ type ResumeResponse struct {
 	// NextStep is the recommended single next action.
 	NextStep string `json:"next_step"`
 }
+
+// FocusItem is a single entry in the focus ranked list.
+type FocusItem struct {
+	// RepoName is the name of the repository.
+	RepoName string `json:"repo_name"`
+	// RankReason is a one-line justification for the ranking.
+	RankReason string `json:"rank_reason"`
+	// ProximityScore is 1 (far from working) to 5 (nearly complete).
+	ProximityScore int `json:"proximity_score"`
+	// Urgency is true when a deadline within 14 days is detected.
+	Urgency bool `json:"urgency"`
+}
+
+// FocusResponse is the structured output produced by the AI for the focus command.
+type FocusResponse struct {
+	// Ranked is the list of repositories ordered by completion proximity.
+	Ranked []FocusItem `json:"ranked"`
+}
