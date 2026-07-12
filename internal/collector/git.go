@@ -45,6 +45,11 @@ func CollectCommits(
 			return storer.ErrStop
 		}
 
+		// Skip commits before the --since date
+		if opts.Since != nil && commit.Author.When.Before(*opts.Since) {
+			return storer.ErrStop
+		}
+
 		var files []string
 		var diffText string
 

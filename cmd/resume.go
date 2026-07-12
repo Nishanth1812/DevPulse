@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 )
 
+var since string
+
 var resumeCmd = &cobra.Command{
 	Use:   "resume <partial-name>",
 	Short: "Deep context recovery for a single repository",
@@ -26,11 +28,20 @@ var resumeCmd = &cobra.Command{
 what you built, what you started but did not finish, and what the natural next step is.
 Accepts partial names — typing "acm" matches "ACM-APP-BACKEND".`,
 	Args: cobra.ExactArgs(1),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		repos := manager.ListRepositories()
+		var names []string
+		for _, r := range repos {
+			names = append(names, r.Name)
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: runResume,
 }
 
 func init() {
 	rootCmd.AddCommand(resumeCmd)
+	resumeCmd.Flags().StringVar(&since, "since", "", "only include commits after this date (YYYY-MM-DD)")
 }
 
 func runResume(cmd *cobra.Command, args []string) error {
@@ -84,10 +95,18 @@ func runResume(cmd *cobra.Command, args []string) error {
 
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting repository history...")
-	repoData, err := collector.CollectRepo(repoPath, models.CollectOptions{
+	opts := models.CollectOptions{
 		MaxCommits:  50,
 		IncludeDiff: !redactDiff,
-	})
+	}
+	if since != "" {
+		t, err := time.Parse("2006-01-02", since)
+		if err != nil {
+			return fmt.Errorf("resume: invalid --since date %q: use YYYY-MM-DD format", since)
+		}
+		opts.Since = &t
+	}
+	repoData, err := collector.CollectRepo(repoPath, opts)
 	collectSpinner.Stop()
 	if err != nil {
 		logger.LogError("resume", err)

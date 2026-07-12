@@ -22,7 +22,15 @@ var briefCmd = &cobra.Command{
 	Use:   "brief <repo-name>",
 	Short: "Generate an AI-powered development brief for a registered repository",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runBrief,
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		repos := manager.ListRepositories()
+		var names []string
+		for _, r := range repos {
+			names = append(names, r.Name)
+		}
+		return names, cobra.ShellCompDirectiveNoFileComp
+	},
+	RunE: runBrief,
 }
 
 func init() {

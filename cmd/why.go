@@ -25,6 +25,22 @@ var whyCmd = &cobra.Command{
 of every significant decision made in it. Accepts a partial repo name the same way
 resume does.`,
 	Args: cobra.ExactArgs(2),
+	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			// Completing repo name
+			repos := manager.ListRepositories()
+			var names []string
+			for _, r := range repos {
+				names = append(names, r.Name)
+			}
+			return names, cobra.ShellCompDirectiveNoFileComp
+		}
+		if len(args) == 1 {
+			// Completing file path — allow normal file completion
+			return nil, cobra.ShellCompDirectiveFilterDirs
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	},
 	RunE: runWhy,
 }
 
