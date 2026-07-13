@@ -1,7 +1,9 @@
 package security
 
 import (
+	"math"
 	"regexp"
+	"strings"
 )
 
 type Match struct {
@@ -55,6 +57,11 @@ func init() {
 			replace: "[REDACTED SLACK TOKEN]",
 		},
 		{
+			name:    "gcp-service-account",
+			regex:   regexp.MustCompile(`"type"\s*:\s*"service_account"`),
+			replace: "[REDACTED GCP SERVICE ACCOUNT]",
+		},
+		{
 			name:    "generic-api-key",
 			regex:   regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`),
 			replace: "[REDACTED CREDENTIAL]",
@@ -72,6 +79,27 @@ func init() {
 	}
 }
 
+var highEntropyRe = regexp.MustCompile(`[A-Za-z0-9+/=]{40,}`)
+
+func shannonEntropy(s string) float64 {
+	if len(s) == 0 {
+		return 0
+	}
+	freq := make(map[rune]float64)
+	for _, c := range s {
+		freq[c]++
+	}
+	length := float64(len([]rune(s)))
+	entropy := 0.0
+	for _, count := range freq {
+		p := count / length
+		if p > 0 {
+			entropy -= p * math.Log2(p)
+		}
+	}
+	return entropy
+}
+
 func ScanPrompt(prompt string) ScanResult {
 	redacted := prompt
 	var matches []Match
@@ -85,6 +113,14 @@ func ScanPrompt(prompt string) ScanResult {
 			matches = append(matches, Match{Pattern: p.name})
 		}
 		redacted = p.regex.ReplaceAllString(redacted, p.replace)
+	}
+
+	candidates := highEntropyRe.FindAllString(redacted, -1)
+	for _, c := range candidates {
+		if shannonEntropy(c) > 4.5 {
+			matches = append(matches, Match{Pattern: "high-entropy-string"})
+			redacted = strings.ReplaceAll(redacted, c, "[REDACTED HIGH-ENTROPY STRING]")
+		}
 	}
 
 	return ScanResult{
