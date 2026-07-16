@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,7 +111,7 @@ func purgeOldLogs(logDir string, now time.Time) error {
 		if now.Sub(info.ModTime()) <= retention {
 			continue
 		}
-		if err := os.Remove(path); err != nil {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("remove old log file %q: %w", path, err)
 		}
 	}

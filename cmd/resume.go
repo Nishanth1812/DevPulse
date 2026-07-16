@@ -82,17 +82,6 @@ func runResume(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resume: repository %q is not registered; run: devpulse register <path>", repoName)
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("resume", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, "")
-	if err != nil {
-		return fmt.Errorf("resume: initialize AI client: %w", err)
-	}
-
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting repository history...")
 	opts := models.CollectOptions{
@@ -156,6 +145,17 @@ func runResume(cmd *cobra.Command, args []string) error {
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
+	}
+
+	apiKey, err := config.GetAPIKey(provider)
+	if err != nil {
+		logger.LogError("resume", err)
+		return err
+	}
+
+	client, err := ai.NewClient(provider, apiKey, "")
+	if err != nil {
+		return fmt.Errorf("resume: initialize AI client: %w", err)
 	}
 
 	aiSpinner := output.NewSpinner(noColor)

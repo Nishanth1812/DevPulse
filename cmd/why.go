@@ -87,17 +87,6 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("why: repository %q is not registered", repoName)
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("why", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, "")
-	if err != nil {
-		return fmt.Errorf("why: initialize AI client: %w", err)
-	}
-
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting commit history for file...")
 	commits, err := collector.CollectFileCommits(repoPath, filePath, 50)
@@ -150,6 +139,17 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
+	}
+
+	apiKey, err := config.GetAPIKey(provider)
+	if err != nil {
+		logger.LogError("why", err)
+		return err
+	}
+
+	client, err := ai.NewClient(provider, apiKey, "")
+	if err != nil {
+		return fmt.Errorf("why: initialize AI client: %w", err)
 	}
 
 	aiSpinner := output.NewSpinner(noColor)

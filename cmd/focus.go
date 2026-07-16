@@ -33,17 +33,6 @@ func init() {
 }
 
 func runFocus(cmd *cobra.Command, args []string) error {
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("focus", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, "")
-	if err != nil {
-		return fmt.Errorf("focus: initialize AI client: %w", err)
-	}
-
 	repos := manager.ListRepositories()
 	if len(repos) == 0 {
 		return fmt.Errorf("focus: no repositories registered; run: devpulse register <path>")
@@ -123,6 +112,17 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
+	}
+
+	apiKey, err := config.GetAPIKey(provider)
+	if err != nil {
+		logger.LogError("focus", err)
+		return err
+	}
+
+	client, err := ai.NewClient(provider, apiKey, "")
+	if err != nil {
+		return fmt.Errorf("focus: initialize AI client: %w", err)
 	}
 
 	aiSpinner := output.NewSpinner(noColor)
