@@ -5,6 +5,7 @@ go 1.25.12
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/go-git/go-git/v5 v5.19.1
+	github.com/sahilm/fuzzy v0.1.3
 	github.com/spf13/cobra v1.10.2
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/term v0.43.0
@@ -35,7 +36,6 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
-	github.com/sahilm/fuzzy v0.1.3 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
