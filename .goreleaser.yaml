@@ -47,6 +47,8 @@ archives:
       - LICENSE*
       - README.md
       - SECURITY.md
+      - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md
 
 checksum:
   name_template: 'checksums.txt'
