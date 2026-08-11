@@ -1,0 +1,44 @@
+name: release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Derive release version
+        id: version
+        shell: bash
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          SHORT=$(git rev-parse --short HEAD)
+          VERSION="0.$COUNT.0+$SHORT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create/keep tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}" || true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

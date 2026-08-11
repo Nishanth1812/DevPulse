@@ -8,3 +8,5 @@ devpulse.exe
 # Local workspace / env
 .env
 .env.local
+# Added by goreleaser init:
+dist/

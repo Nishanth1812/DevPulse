@@ -13,8 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Build-time metadata, injected via `go build -ldflags`. The version default
+// follows Go's standard pseudo-version for an unreleased source build; tagged
+// releases override it through GoReleaser.
 var (
-	version    = "dev"
+	version   = "v0.0.0"
+	commit    = "none"
+	buildDate = "unknown"
+
 	verbose    bool
 	noColor    bool
 	dryRun     bool
