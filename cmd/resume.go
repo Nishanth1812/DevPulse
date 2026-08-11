@@ -1,22 +1,18 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"github.com/Nishanth1812/devpulse/internal/ai"
 	"github.com/Nishanth1812/devpulse/internal/cache"
 	"github.com/Nishanth1812/devpulse/internal/collector"
-	"github.com/Nishanth1812/devpulse/internal/config"
-	"github.com/Nishanth1812/devpulse/internal/fuzzy"
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/Nishanth1812/devpulse/internal/output"
-	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
-	"path/filepath"
 )
 
 var since string
@@ -47,36 +43,16 @@ func init() {
 func runResume(cmd *cobra.Command, args []string) error {
 	query := args[0]
 
-	// Resolve repo name via fuzzy matching
-	repos := manager.ListRepositories()
-	names := make([]string, len(repos))
-	for i, r := range repos {
-		names[i] = r.Name
-	}
-
-	threshold := 50
-	if t, err := manager.Get("fuzzy.threshold"); err == nil {
-		fmt.Sscanf(t, "%d", &threshold)
-	}
-
-	result, err := fuzzy.Match(query, names, threshold)
+	result, err := fuzzyMatch(query)
 	if err != nil {
 		return fmt.Errorf("resume: %w", err)
 	}
-
-	// If multiple candidates, show numbered list and exit
 	if len(result.Candidates) > 0 {
-		w := cmd.OutOrStdout()
-		_, _ = fmt.Fprintf(w, "Multiple repositories match %q:\n\n", query)
-		for i, name := range result.Candidates {
-			_, _ = fmt.Fprintf(w, "  %d. %s\n", i+1, name)
-		}
-		_, _ = fmt.Fprintln(w, "\nPlease use a more specific name.")
+		printCandidates(cmd.OutOrStdout(), query, result.Candidates)
 		return nil
 	}
 
 	repoName := result.Matched
-
 	repoPath, ok := manager.RepositoryPath(repoName)
 	if !ok {
 		return fmt.Errorf("resume: repository %q is not registered; run: devpulse register <path>", repoName)
@@ -109,91 +85,40 @@ func runResume(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, since, fmt.Sprintf("%t", redactDiff))
-	if !dryRun && resumeCache != nil {
-		if rawJSON, ok := resumeCache.GetRaw(repoName, cacheKey, provider, "resume", cacheMaxAge); ok {
-			logger.LogCacheEvent("resume", repoName, "hit")
-			var cached ai.ResumeResponse
-			if err := json.Unmarshal(rawJSON, &cached); err == nil {
-				return renderResume(cmd.OutOrStdout(), repoData, cached)
-			}
-		}
-		logger.LogCacheEvent("resume", repoName, "miss")
-	}
 
-	goalsSpinner := output.NewSpinner(noColor)
-	goalsSpinner.Start("Loading goals...")
-	goals, err := collector.ParseGoals()
-	goalsSpinner.Stop()
+	data, err := ai.Run(cmd.Context(), ai.RunOptions{
+		Command:     "resume",
+		Provider:    provider,
+		NewClient:   newClientFactory("resume", true),
+		Cache:       resumeCache,
+		RepoKey:     repoName,
+		CacheKey:    cacheKey,
+		CacheMaxAge: cacheMaxAge,
+		DryRun:      dryRun,
+		Out:         cmd.OutOrStdout(),
+		ErrOut:      cmd.ErrOrStderr(),
+		Spinner:     spinnerFactory(),
+		LoadGoals:   goalsLoader(),
+		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildResumePrompt(repoData, goals) },
+		Parse: func(raw string) (any, error) {
+			return ai.ParseResumeResponse(raw)
+		},
+		DryRunInfo: func(prompt string, goals models.GoalsData) string {
+			estTokens := ai.EstimateTokens(prompt)
+			bk := ai.BreakdownTokens([]models.RepoData{repoData}, goals)
+			return fmt.Sprintf("Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)",
+				estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
+		},
+	})
 	if err != nil {
-		logger.Log("DEBUG", "resume", "goals not found: "+err.Error())
-		goals = models.GoalsData{}
+		return err
 	}
-
-	prompt := ai.BuildResumePrompt(repoData, goals)
-
-	scanResult := security.ScanPrompt(prompt)
-	if scanResult.ContainsSecrets {
-		logger.Log("WARN", "resume", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = scanResult.RedactedPrompt
-	}
-
-	if dryRun {
-		w := cmd.OutOrStdout()
-		estTokens := ai.EstimateTokens(prompt)
-		bk := ai.BreakdownTokens([]models.RepoData{repoData}, goals)
-		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
-		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)\n\n",
-			estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
-		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
-		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+	if data == nil {
 		return nil
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("resume", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, resolveModel("resume", true))
-	if err != nil {
-		return fmt.Errorf("resume: initialize AI client: %w", err)
-	}
-
-	aiSpinner := output.NewSpinner(noColor)
-	aiSpinner.Start("Generating resume...")
-	raw, err := client.Generate(cmd.Context(), prompt)
-	aiSpinner.Stop()
-	if err != nil {
-		logger.LogError("resume", err)
-		return fmt.Errorf("resume: AI call failed: %w", err)
-	}
-
-	responseScan := security.ScanPrompt(raw)
-	if responseScan.ContainsSecrets {
-		logger.Log("WARN", "resume", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
-		raw = responseScan.RedactedPrompt
-	}
-
-	summary, err := ai.ParseResumeResponse(raw)
-	if err != nil {
-		logger.LogError("resume", err)
-		return err
-	}
-
-	if resumeCache != nil {
-		if data, err := json.Marshal(summary); err == nil {
-			if storeErr := resumeCache.PutRaw(repoName, cacheKey, provider, "resume", data); storeErr != nil {
-				logger.Log("WARN", "resume", "cache_store_failed: "+storeErr.Error())
-			}
-		}
-	}
-
 	logger.Log("INFO", "resume", fmt.Sprintf("repo=%s branch=%s provider=%s", repoData.Name, repoData.Branch, provider))
-	return renderResume(cmd.OutOrStdout(), repoData, summary)
+	return renderResume(cmd.OutOrStdout(), repoData, data.(ai.ResumeResponse))
 }
 
 func renderResume(w io.Writer, repo models.RepoData, r ai.ResumeResponse) error {

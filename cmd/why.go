@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,11 +9,9 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/ai"
 	"github.com/Nishanth1812/devpulse/internal/cache"
 	"github.com/Nishanth1812/devpulse/internal/collector"
-	"github.com/Nishanth1812/devpulse/internal/config"
-	"github.com/Nishanth1812/devpulse/internal/fuzzy"
 	"github.com/Nishanth1812/devpulse/internal/logger"
+	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/Nishanth1812/devpulse/internal/output"
-	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
 )
 
@@ -52,36 +49,16 @@ func runWhy(cmd *cobra.Command, args []string) error {
 	query := args[0]
 	filePath := args[1]
 
-	// Resolve repo name via fuzzy matching
-	repos := manager.ListRepositories()
-	names := make([]string, len(repos))
-	for i, r := range repos {
-		names[i] = r.Name
-	}
-
-	threshold := 50
-	if t, err := manager.Get("fuzzy.threshold"); err == nil {
-		fmt.Sscanf(t, "%d", &threshold)
-	}
-
-	result, err := fuzzy.Match(query, names, threshold)
+	result, err := fuzzyMatch(query)
 	if err != nil {
 		return fmt.Errorf("why: %w", err)
 	}
-
-	// If multiple candidates, show numbered list and exit
 	if len(result.Candidates) > 0 {
-		w := cmd.OutOrStdout()
-		_, _ = fmt.Fprintf(w, "Multiple repositories match %q:\n\n", query)
-		for i, name := range result.Candidates {
-			_, _ = fmt.Fprintf(w, "  %d. %s\n", i+1, name)
-		}
-		_, _ = fmt.Fprintln(w, "\nPlease use a more specific name.")
+		printCandidates(cmd.OutOrStdout(), query, result.Candidates)
 		return nil
 	}
 
 	repoName := result.Matched
-
 	repoPath, ok := manager.RepositoryPath(repoName)
 	if !ok {
 		return fmt.Errorf("why: repository %q is not registered", repoName)
@@ -113,86 +90,43 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		newestSHA = commits[len(commits)-1].SHA
 	}
 	cacheKey := cache.Hash(repoName, filePath, newestSHA)
-	if !dryRun && whyCache != nil {
-		if rawJSON, ok := whyCache.GetRaw(cacheKey, cacheKey, provider, "why", cacheMaxAge); ok {
-			logger.LogCacheEvent("why", cacheKey, "hit")
-			var cached ai.WhyResponse
-			if err := json.Unmarshal(rawJSON, &cached); err == nil {
-				return renderWhy(cmd.OutOrStdout(), repoName, filePath, cached)
+
+	data, err := ai.Run(cmd.Context(), ai.RunOptions{
+		Command:     "why",
+		Provider:    provider,
+		NewClient:   newClientFactory("why", false),
+		Cache:       whyCache,
+		RepoKey:     cacheKey,
+		CacheKey:    cacheKey,
+		CacheMaxAge: cacheMaxAge,
+		DryRun:      dryRun,
+		Out:         cmd.OutOrStdout(),
+		ErrOut:      cmd.ErrOrStderr(),
+		Spinner:     spinnerFactory(),
+		LoadGoals:   goalsLoader(),
+		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildWhyPrompt(repoName, filePath, commits) },
+		Parse: func(raw string) (any, error) {
+			return ai.ParseWhyResponse(raw)
+		},
+		DryRunInfo: func(prompt string, goals models.GoalsData) string {
+			estTokens := ai.EstimateTokens(prompt)
+			diffTokens := 0
+			for _, c := range commits {
+				diffTokens += ai.EstimateTokens(c.DiffSnippet)
 			}
-		}
-		logger.LogCacheEvent("why", cacheKey, "miss")
+			return fmt.Sprintf("File: %s\nCommits: %d\nEstimated tokens: ~%d (file diffs ~%d)",
+				filePath, len(commits), estTokens, diffTokens)
+		},
+	})
+	if err != nil {
+		return err
 	}
-
-	prompt := ai.BuildWhyPrompt(repoName, filePath, commits)
-
-	scanResult := security.ScanPrompt(prompt)
-	if scanResult.ContainsSecrets {
-		logger.Log("WARN", "why", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = scanResult.RedactedPrompt
-	}
-
-	if dryRun {
-		w := cmd.OutOrStdout()
-		estTokens := ai.EstimateTokens(prompt)
-		diffTokens := 0
-		for _, c := range commits {
-			diffTokens += ai.EstimateTokens(c.DiffSnippet)
-		}
-		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
-		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "File: %s\n", filePath)
-		_, _ = fmt.Fprintf(w, "Commits: %d\n", len(commits))
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (file diffs ~%d)\n\n", estTokens, diffTokens)
-		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
-		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+	if data == nil {
 		return nil
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("why", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, resolveModel("why", false))
-	if err != nil {
-		return fmt.Errorf("why: initialize AI client: %w", err)
-	}
-
-	aiSpinner := output.NewSpinner(noColor)
-	aiSpinner.Start("Generating file archaeology...")
-	raw, err := client.Generate(cmd.Context(), prompt)
-	aiSpinner.Stop()
-	if err != nil {
-		logger.LogError("why", err)
-		return fmt.Errorf("why: AI call failed: %w", err)
-	}
-
-	responseScan := security.ScanPrompt(raw)
-	if responseScan.ContainsSecrets {
-		logger.Log("WARN", "why", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
-		raw = responseScan.RedactedPrompt
-	}
-
-	why, err := ai.ParseWhyResponse(raw)
-	if err != nil {
-		logger.LogError("why", err)
-		return err
-	}
-
-	if whyCache != nil {
-		if data, err := json.Marshal(why); err == nil {
-			if storeErr := whyCache.PutRaw(cacheKey, cacheKey, provider, "why", data); storeErr != nil {
-				logger.Log("WARN", "why", "cache_store_failed: "+storeErr.Error())
-			}
-		}
-	}
-
 	logger.Log("INFO", "why", fmt.Sprintf("repo=%s file=%s provider=%s commits=%d", repoName, filePath, provider, len(commits)))
-	return renderWhy(cmd.OutOrStdout(), repoName, filePath, why)
+	return renderWhy(cmd.OutOrStdout(), repoName, filePath, data.(ai.WhyResponse))
 }
 
 func renderWhy(w io.Writer, repoName, filePath string, r ai.WhyResponse) error {

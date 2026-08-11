@@ -2,14 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 
 	"github.com/Nishanth1812/devpulse/internal/ai"
-	"github.com/Nishanth1812/devpulse/internal/config"
-	"github.com/Nishanth1812/devpulse/internal/logger"
-	"github.com/Nishanth1812/devpulse/internal/output"
-	"github.com/Nishanth1812/devpulse/internal/security"
+	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/spf13/cobra"
 )
 
@@ -38,60 +36,36 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("commit: no staged changes found; run git add first")
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
+	data, err := ai.Run(cmd.Context(), ai.RunOptions{
+		Command:     "commit",
+		Provider:    provider,
+		NewClient:   newClientFactory("commit", false),
+		Cache:       nil,
+		CacheMaxAge: 0,
+		DryRun:      dryRun,
+		Out:         cmd.OutOrStdout(),
+		ErrOut:      cmd.ErrOrStderr(),
+		Spinner:     spinnerFactory(),
+		LoadGoals:   func() models.GoalsData { return models.GoalsData{} },
+		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildCommitPrompt(diff) },
+		Parse: func(raw string) (any, error) {
+			return ai.ParseCommitResponse(raw)
+		},
+		DryRunInfo: func(prompt string, goals models.GoalsData) string {
+			return fmt.Sprintf("Estimated tokens: ~%d", ai.EstimateTokens(prompt))
+		},
+	})
 	if err != nil {
-		logger.LogError("commit", err)
 		return err
 	}
-
-	client, err := ai.NewClient(provider, apiKey, resolveModel("commit", false))
-	if err != nil {
-		return fmt.Errorf("commit: initialize AI client: %w", err)
-	}
-
-	prompt := ai.BuildCommitPrompt(diff)
-
-	scanResult := security.ScanPrompt(prompt)
-	if scanResult.ContainsSecrets {
-		logger.Log("WARN", "commit", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = scanResult.RedactedPrompt
-	}
-
-	if dryRun {
-		w := cmd.OutOrStdout()
-		estTokens := ai.EstimateTokens(prompt)
-		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
-		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
-		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
-		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+	if data == nil {
 		return nil
 	}
 
-	spinner := output.NewSpinner(noColor)
-	spinner.Start("Generating commit message…")
-	raw, err := client.Generate(cmd.Context(), prompt)
-	spinner.Stop()
-	if err != nil {
-		logger.LogError("commit", err)
-		return fmt.Errorf("commit: AI call failed: %w", err)
-	}
+	return renderCommit(cmd.OutOrStdout(), data.(ai.CommitResponse))
+}
 
-	responseScan := security.ScanPrompt(raw)
-	if responseScan.ContainsSecrets {
-		logger.Log("WARN", "commit", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
-		raw = responseScan.RedactedPrompt
-	}
-
-	result, err := ai.ParseCommitResponse(raw)
-	if err != nil {
-		logger.LogError("commit", err)
-		return err
-	}
-
-	w := cmd.OutOrStdout()
+func renderCommit(w io.Writer, result ai.CommitResponse) error {
 	if _, err := fmt.Fprintln(w, result.Subject); err != nil {
 		return err
 	}
@@ -99,9 +73,8 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		if _, err := fmt.Fprintln(w); err != nil {
 			return err
 		}
-		_, err = fmt.Fprintln(w, result.Body)
+		_, err := fmt.Fprintln(w, result.Body)
 		return err
 	}
-
 	return nil
 }

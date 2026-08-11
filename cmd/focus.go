@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -10,11 +9,9 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/ai"
 	"github.com/Nishanth1812/devpulse/internal/cache"
 	"github.com/Nishanth1812/devpulse/internal/collector"
-	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/Nishanth1812/devpulse/internal/output"
-	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
 )
 
@@ -79,92 +76,40 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		keyParts = append(keyParts, rd.Name, rd.HeadSHA)
 	}
 	focusKey := cache.Hash(keyParts...)
-	if !dryRun && focusCache != nil {
-		if rawJSON, ok := focusCache.GetRaw(focusKey, focusKey, provider, "focus", cacheMaxAge); ok {
-			logger.LogCacheEvent("focus", focusKey, "hit")
-			var cached ai.FocusResponse
-			if err := json.Unmarshal(rawJSON, &cached); err == nil {
-				return renderFocus(cmd.OutOrStdout(), cached)
-			}
-		}
-		logger.LogCacheEvent("focus", focusKey, "miss")
-	}
 
-	goalsSpinner := output.NewSpinner(noColor)
-	goalsSpinner.Start("Loading goals...")
-	goals, err := collector.ParseGoals()
-	goalsSpinner.Stop()
+	data, err := ai.Run(cmd.Context(), ai.RunOptions{
+		Command:     "focus",
+		Provider:    provider,
+		NewClient:   newClientFactory("focus", false),
+		Cache:       focusCache,
+		RepoKey:     focusKey,
+		CacheKey:    focusKey,
+		CacheMaxAge: cacheMaxAge,
+		DryRun:      dryRun,
+		Out:         cmd.OutOrStdout(),
+		ErrOut:      cmd.ErrOrStderr(),
+		Spinner:     spinnerFactory(),
+		LoadGoals:   goalsLoader(),
+		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildFocusPrompt(repoDataList, goals) },
+		Parse: func(raw string) (any, error) {
+			return ai.ParseFocusResponse(raw)
+		},
+		DryRunInfo: func(prompt string, goals models.GoalsData) string {
+			estTokens := ai.EstimateTokens(prompt)
+			bk := ai.BreakdownTokens(repoDataList, goals)
+			return fmt.Sprintf("Repos: %d\nEstimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)",
+				len(repoDataList), estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
+		},
+	})
 	if err != nil {
-		logger.Log("DEBUG", "focus", "goals not found: "+err.Error())
-		goals = models.GoalsData{}
+		return err
 	}
-
-	prompt := ai.BuildFocusPrompt(repoDataList, goals)
-
-	scanResult := security.ScanPrompt(prompt)
-	if scanResult.ContainsSecrets {
-		logger.Log("WARN", "focus", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = scanResult.RedactedPrompt
-	}
-
-	if dryRun {
-		w := cmd.OutOrStdout()
-		estTokens := ai.EstimateTokens(prompt)
-		bk := ai.BreakdownTokens(repoDataList, goals)
-		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
-		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "Repos: %d\n", len(repoDataList))
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)\n\n",
-			estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
-		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
-		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+	if data == nil {
 		return nil
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("focus", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, resolveModel("focus", false))
-	if err != nil {
-		return fmt.Errorf("focus: initialize AI client: %w", err)
-	}
-
-	aiSpinner := output.NewSpinner(noColor)
-	aiSpinner.Start("Generating focus ranking...")
-	raw, err := client.Generate(cmd.Context(), prompt)
-	aiSpinner.Stop()
-	if err != nil {
-		logger.LogError("focus", err)
-		return fmt.Errorf("focus: AI call failed: %w", err)
-	}
-
-	responseScan := security.ScanPrompt(raw)
-	if responseScan.ContainsSecrets {
-		logger.Log("WARN", "focus", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
-		raw = responseScan.RedactedPrompt
-	}
-
-	focus, err := ai.ParseFocusResponse(raw)
-	if err != nil {
-		logger.LogError("focus", err)
-		return err
-	}
-
-	if focusCache != nil {
-		if data, err := json.Marshal(focus); err == nil {
-			if storeErr := focusCache.PutRaw(focusKey, focusKey, provider, "focus", data); storeErr != nil {
-				logger.Log("WARN", "focus", "cache_store_failed: "+storeErr.Error())
-			}
-		}
-	}
-
 	logger.Log("INFO", "focus", fmt.Sprintf("repos=%d provider=%s", len(repoDataList), provider))
-	return renderFocus(cmd.OutOrStdout(), focus)
+	return renderFocus(cmd.OutOrStdout(), data.(ai.FocusResponse))
 }
 
 func renderFocus(w io.Writer, f ai.FocusResponse) error {

@@ -1,25 +1,22 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
+	"time"
 
 	"github.com/Nishanth1812/devpulse/internal/ai"
 	"github.com/Nishanth1812/devpulse/internal/cache"
 	"github.com/Nishanth1812/devpulse/internal/collector"
-	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/Nishanth1812/devpulse/internal/models"
 	"github.com/Nishanth1812/devpulse/internal/output"
-	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/spf13/cobra"
-	"path/filepath"
-	"time"
 )
 
 var briefCmd = &cobra.Command{
-	Use:   "brief <repo-name>",
+	Use:   "brief <partial-name>",
 	Short: "Generate an AI-powered development brief for a registered repository",
 	Args:  cobra.ExactArgs(1),
 	ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -38,11 +35,21 @@ func init() {
 }
 
 func runBrief(cmd *cobra.Command, args []string) error {
-	repoName := args[0]
+	query := args[0]
 
+	result, err := fuzzyMatch(query)
+	if err != nil {
+		return fmt.Errorf("brief: %w", err)
+	}
+	if len(result.Candidates) > 0 {
+		printCandidates(cmd.OutOrStdout(), query, result.Candidates)
+		return nil
+	}
+
+	repoName := result.Matched
 	repoPath, ok := manager.RepositoryPath(repoName)
 	if !ok {
-		return fmt.Errorf("repository %q is not registered; run: devpulse register <path>", repoName)
+		return fmt.Errorf("brief: repository %q is not registered; run: devpulse register <path>", repoName)
 	}
 
 	collectSpinner := output.NewSpinner(noColor)
@@ -64,91 +71,40 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, fmt.Sprintf("%t", redactDiff))
-	if !dryRun && briefCache != nil {
-		if rawJSON, ok := briefCache.GetRaw(repoName, cacheKey, provider, "brief", cacheMaxAge); ok {
-			logger.LogCacheEvent("brief", repoName, "hit")
-			var cached ai.BriefResponse
-			if err := json.Unmarshal(rawJSON, &cached); err == nil {
-				return renderBrief(cmd.OutOrStdout(), repoData, cached)
-			}
-		}
-		logger.LogCacheEvent("brief", repoName, "miss")
-	}
 
-	goalsSpinner := output.NewSpinner(noColor)
-	goalsSpinner.Start("Loading goals…")
-	goals, err := collector.ParseGoals()
-	goalsSpinner.Stop()
+	data, err := ai.Run(cmd.Context(), ai.RunOptions{
+		Command:     "brief",
+		Provider:    provider,
+		NewClient:   newClientFactory("brief", false),
+		Cache:       briefCache,
+		RepoKey:     repoName,
+		CacheKey:    cacheKey,
+		CacheMaxAge: cacheMaxAge,
+		DryRun:      dryRun,
+		Out:         cmd.OutOrStdout(),
+		ErrOut:      cmd.ErrOrStderr(),
+		Spinner:     spinnerFactory(),
+		LoadGoals:   goalsLoader(),
+		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildBriefPrompt(repoData, goals) },
+		Parse: func(raw string) (any, error) {
+			return ai.ParseBriefResponse(raw)
+		},
+		DryRunInfo: func(prompt string, goals models.GoalsData) string {
+			estTokens := ai.EstimateTokens(prompt)
+			bk := ai.BreakdownTokens([]models.RepoData{repoData}, goals)
+			return fmt.Sprintf("Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)",
+				estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
+		},
+	})
 	if err != nil {
-		logger.Log("DEBUG", "brief", "goals not found: "+err.Error())
-		goals = models.GoalsData{}
+		return err
 	}
-
-	prompt := ai.BuildBriefPrompt(repoData, goals)
-
-	scanResult := security.ScanPrompt(prompt)
-	if scanResult.ContainsSecrets {
-		logger.Log("WARN", "brief", fmt.Sprintf("sensitive_content_redacted count=%d", len(scanResult.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected and redacted before sending")
-		prompt = scanResult.RedactedPrompt
-	}
-
-	if dryRun {
-		w := cmd.OutOrStdout()
-		estTokens := ai.EstimateTokens(prompt)
-		bk := ai.BreakdownTokens([]models.RepoData{repoData}, goals)
-		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
-		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)\n\n",
-			estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
-		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
-		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
+	if data == nil {
 		return nil
 	}
 
-	apiKey, err := config.GetAPIKey(provider)
-	if err != nil {
-		logger.LogError("brief", err)
-		return err
-	}
-
-	client, err := ai.NewClient(provider, apiKey, resolveModel("brief", false))
-	if err != nil {
-		return fmt.Errorf("brief: initialize AI client: %w", err)
-	}
-
-	aiSpinner := output.NewSpinner(noColor)
-	aiSpinner.Start("Generating brief…")
-	raw, err := client.Generate(cmd.Context(), prompt)
-	aiSpinner.Stop()
-	if err != nil {
-		logger.LogError("brief", err)
-		return fmt.Errorf("brief: AI call failed: %w", err)
-	}
-
-	responseScan := security.ScanPrompt(raw)
-	if responseScan.ContainsSecrets {
-		logger.Log("WARN", "brief", fmt.Sprintf("sensitive_content_in_response count=%d", len(responseScan.Matches)))
-		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Warning: sensitive content detected in AI response and redacted")
-		raw = responseScan.RedactedPrompt
-	}
-
-	brief, err := ai.ParseBriefResponse(raw)
-	if err != nil {
-		logger.LogError("brief", err)
-		return err
-	}
-
-	if briefCache != nil {
-		if data, err := json.Marshal(brief); err == nil {
-			if storeErr := briefCache.PutRaw(repoName, cacheKey, provider, "brief", data); storeErr != nil {
-				logger.Log("WARN", "brief", "cache_store_failed: "+storeErr.Error())
-			}
-		}
-	}
-
 	logger.Log("INFO", "brief", fmt.Sprintf("repo=%s branch=%s provider=%s", repoData.Name, repoData.Branch, provider))
-	return renderBrief(cmd.OutOrStdout(), repoData, brief)
+	return renderBrief(cmd.OutOrStdout(), repoData, data.(ai.BriefResponse))
 }
 
 func renderBrief(w io.Writer, repo models.RepoData, b ai.BriefResponse) error {
