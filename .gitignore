@@ -1,0 +1,10 @@
+# Built binaries
+devpulse.exe
+
+# Go build output
+*.exe
+*.test
+
+# Local workspace / env
+.env
+.env.local
