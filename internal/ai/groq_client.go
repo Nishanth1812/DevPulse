@@ -52,53 +52,56 @@ func (c *groqClient) Name() string {
 
 func (c *groqClient) Generate(ctx context.Context, prompt string) (string, error) {
 	body := groqRequest{
-		Model: c.model,
-		Messages: []groqMessage{
-			{Role: "user", Content: prompt},
-		},
+		Model:          c.model,
+		Messages:       []groqMessage{{Role: "user", Content: prompt}},
+		ResponseFormat: &groqResponseFormat{Type: "json_object"},
 	}
 
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return "", fmt.Errorf("groq: encode request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(encoded))
-	if err != nil {
-		return "", fmt.Errorf("groq: build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-
-	start := time.Now()
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("groq: http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	if err != nil {
-		return "", fmt.Errorf("groq: read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		var apiErr groqErrorBody
-		if json.Unmarshal(raw, &apiErr) == nil && apiErr.Error.Message != "" {
-			return "", fmt.Errorf("groq: api error (%s): %s", apiErr.Error.Code, apiErr.Error.Message)
+	attempt := func(ctx context.Context) (string, error) {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return "", fmt.Errorf("groq: encode request: %w", err)
 		}
-		return "", fmt.Errorf("groq: unexpected status %d", resp.StatusCode)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(encoded))
+		if err != nil {
+			return "", fmt.Errorf("groq: build request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+		start := time.Now()
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("groq: http request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+		if err != nil {
+			return "", fmt.Errorf("groq: read response body: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			var apiErr groqErrorBody
+			if json.Unmarshal(raw, &apiErr) == nil && apiErr.Error.Message != "" {
+				return "", fmt.Errorf("groq: api error (%s): %s", apiErr.Error.Code, apiErr.Error.Message)
+			}
+			return "", fmt.Errorf("groq: unexpected status %d", resp.StatusCode)
+		}
+
+		var result groqResponse
+		if err := json.Unmarshal(raw, &result); err != nil {
+			return "", fmt.Errorf("groq: decode response: %w", err)
+		}
+		if len(result.Choices) == 0 {
+			return "", fmt.Errorf("groq: response contained no choices")
+		}
+
+		logger.LogAPICall("groq", 0, c.model, result.Usage.TotalTokens, time.Since(start))
+
+		return strings.TrimSpace(result.Choices[0].Message.Content), nil
 	}
 
-	var result groqResponse
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return "", fmt.Errorf("groq: decode response: %w", err)
-	}
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("groq: response contained no choices")
-	}
-
-	logger.LogAPICall("groq", 0, c.model, result.Usage.TotalTokens, time.Since(start))
-
-	return strings.TrimSpace(result.Choices[0].Message.Content), nil
+	return withRetry(ctx, attempt)
 }

@@ -51,19 +51,25 @@ func (c *geminiClient) Generate(ctx context.Context, prompt string) (string, err
 	ctx, cancel := context.WithTimeout(ctx, defaultGeminiTimeout)
 	defer cancel()
 
-	start := time.Now()
-	result, err := c.client.Models.GenerateContent(ctx, c.model, genai.Text(prompt), nil)
-	if err != nil {
-		return "", fmt.Errorf("gemini: generate content: %w", err)
+	attempt := func(ctx context.Context) (string, error) {
+		start := time.Now()
+		result, err := c.client.Models.GenerateContent(ctx, c.model, genai.Text(prompt), &genai.GenerateContentConfig{
+			ResponseMIMEType: "application/json",
+		})
+		if err != nil {
+			return "", fmt.Errorf("gemini: generate content: %w", err)
+		}
+
+		text := result.Text()
+		totalTokens := 0
+		if result.UsageMetadata != nil {
+			totalTokens = int(result.UsageMetadata.TotalTokenCount)
+		}
+
+		logger.LogAPICall("gemini", 0, c.model, totalTokens, time.Since(start))
+
+		return strings.TrimSpace(text), nil
 	}
 
-	text := result.Text()
-	totalTokens := 0
-	if result.UsageMetadata != nil {
-		totalTokens = int(result.UsageMetadata.TotalTokenCount)
-	}
-
-	logger.LogAPICall("gemini", 0, c.model, totalTokens, time.Since(start))
-
-	return strings.TrimSpace(text), nil
+	return withRetry(ctx, attempt)
 }
