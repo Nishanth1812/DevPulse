@@ -44,7 +44,7 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := ai.NewClient(provider, apiKey, "")
+	client, err := ai.NewClient(provider, apiKey, resolveModel("commit", false))
 	if err != nil {
 		return fmt.Errorf("commit: initialize AI client: %w", err)
 	}
@@ -60,7 +60,7 @@ func runCommit(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		w := cmd.OutOrStdout()
-		estTokens := len(prompt) / 4
+		estTokens := ai.EstimateTokens(prompt)
 		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
 		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)

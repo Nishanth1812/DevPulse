@@ -3,9 +3,11 @@ package ai
 import "time"
 
 const (
-	defaultGroqModel   = "openai/gpt-oss-20b"
-	defaultGroqTimeout = 60 * time.Second
-	defaultGroqBaseURL = "https://api.groq.com/openai/v1"
+	defaultGroqModel       = "openai/gpt-oss-20b"
+	defaultGroqTimeout     = 60 * time.Second
+	defaultGroqBaseURL     = "https://api.groq.com/openai/v1"
+	defaultGeminiFastModel = "gemini-2.5-flash-lite"
+	defaultGeminiDeepModel = "gemini-2.5-flash"
 )
 
 // GroqConfig holds construction-time configuration for the Groq client.

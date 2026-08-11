@@ -44,8 +44,9 @@ func runFocus(cmd *cobra.Command, args []string) error {
 	var collectErrors []string
 	for _, r := range repos {
 		data, err := collector.CollectRepo(r.Path, models.CollectOptions{
-			MaxCommits:  10,
-			IncludeDiff: !redactDiff,
+			MaxCommits:      10,
+			FullDiffCommits: 10,
+			IncludeDiff:     !redactDiff,
 		})
 		if err != nil {
 			collectErrors = append(collectErrors, fmt.Sprintf("%s: %s", r.Name, err.Error()))
@@ -104,11 +105,13 @@ func runFocus(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		w := cmd.OutOrStdout()
-		estTokens := len(prompt) / 4
+		estTokens := ai.EstimateTokens(prompt)
+		bk := ai.BreakdownTokens(repoDataList, goals)
 		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
 		_, _ = fmt.Fprintf(w, "Repos: %d\n", len(repoDataList))
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
+		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)\n\n",
+			estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
@@ -120,7 +123,7 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := ai.NewClient(provider, apiKey, "")
+	client, err := ai.NewClient(provider, apiKey, resolveModel("focus", false))
 	if err != nil {
 		return fmt.Errorf("focus: initialize AI client: %w", err)
 	}

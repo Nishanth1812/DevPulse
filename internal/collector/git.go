@@ -6,6 +6,7 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/compressor"
 	"github.com/Nishanth1812/devpulse/internal/models"
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 )
@@ -50,10 +51,15 @@ func CollectCommits(
 			return storer.ErrStop
 		}
 
+		// Commits older than the full-diff window collapse to one-line summaries
+		// (timestamp + message) to bound prompt size.
+		includeFull := opts.IncludeDiff &&
+			(opts.FullDiffCommits == 0 || count < opts.FullDiffCommits)
+
 		var files []string
 		var diffText string
 
-		if opts.IncludeDiff {
+		if includeFull {
 			parent, err := commit.Parent(0)
 
 			if err == nil {
@@ -96,7 +102,9 @@ func CollectCommits(
 
 // CollectFileCommits returns the commit history for a specific file path.
 // Commits are ordered oldest-first to support the "why" narrative.
-func CollectFileCommits(repoPath, filePath string, maxCommits int) ([]models.CommitSummary, error) {
+// Only the newest fullDiffCommits commits keep their diffs; older ones are
+// reduced to messages to bound prompt size (0 = keep all diffs).
+func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits int) ([]models.CommitSummary, error) {
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
 		return nil, err
@@ -115,6 +123,7 @@ func CollectFileCommits(repoPath, filePath string, maxCommits int) ([]models.Com
 	}
 
 	var commits []models.CommitSummary
+	matched := 0
 
 	err = refIter.ForEach(func(commit *object.Commit) error {
 		if maxCommits > 0 && len(commits) >= maxCommits {
@@ -138,21 +147,23 @@ func CollectFileCommits(repoPath, filePath string, maxCommits int) ([]models.Com
 			return nil
 		}
 
-		// Get the diff for this file
+		// Get the diff for this file (only for the newest fullDiffCommits commits)
 		var diffText string
-		parent, err := commit.Parent(0)
-		if err == nil {
-			patch, err := parent.Patch(commit)
+		if fullDiffCommits == 0 || matched < fullDiffCommits {
+			parent, err := commit.Parent(0)
 			if err == nil {
-				// Filter patch to only the target file
-				for _, stat := range patch.Stats() {
-					if stat.Name == filePath {
-						diffText = compressor.CompressDiff(patch.String())
-						break
+				patch, err := parent.Patch(commit)
+				if err == nil {
+					for _, fp := range patch.FilePatches() {
+						if filePatchTouches(fp, filePath) {
+							diffText = compressor.CompressDiff(filePatchDiffText(fp))
+							break
+						}
 					}
 				}
 			}
 		}
+		matched++
 
 		commits = append(commits, models.CommitSummary{
 			SHA:         commit.Hash.String(),
@@ -175,4 +186,45 @@ func CollectFileCommits(repoPath, filePath string, maxCommits int) ([]models.Com
 	}
 
 	return commits, nil
+}
+
+// filePatchTouches reports whether a file patch involves the target path,
+// checking both the old (pre-rename) and new side.
+func filePatchTouches(fp diff.FilePatch, filePath string) bool {
+	from, to := fp.Files()
+	if from != nil && from.Path() == filePath {
+		return true
+	}
+	if to != nil && to.Path() == filePath {
+		return true
+	}
+	return false
+}
+
+// filePatchDiffText renders a single file patch's changed lines (not the whole
+// commit diff), prefixing each line with its + / - / context marker so it can be
+// fed through the compressor like a normal diff.
+func filePatchDiffText(fp diff.FilePatch) string {
+	var b strings.Builder
+
+	for _, chunk := range fp.Chunks() {
+		marker := byte(' ')
+		switch chunk.Type() {
+		case diff.Add:
+			marker = '+'
+		case diff.Delete:
+			marker = '-'
+		}
+
+		for _, line := range strings.Split(chunk.Content(), "\n") {
+			if line == "" {
+				continue
+			}
+			b.WriteByte(marker)
+			b.WriteString(line)
+			b.WriteByte('\n')
+		}
+	}
+
+	return b.String()
 }

@@ -6,6 +6,10 @@ type CollectOptions struct {
 	MaxCommits  int
 	Since       *time.Time
 	IncludeDiff bool
+	// FullDiffCommits is how many of the newest commits keep full diffs.
+	// Older commits are reduced to one-line summaries. 0 means all commits
+	// keep diffs (previous behaviour).
+	FullDiffCommits int
 }
 
 type CommitSummary struct {

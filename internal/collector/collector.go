@@ -87,5 +87,5 @@ func loadNotes(repo string) string {
 		return ""
 	}
 
-	return string(content)
+	return compressor.CompressNotes(string(content))
 }

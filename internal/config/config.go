@@ -13,10 +13,6 @@ import (
 const (
 	ConfigEnv             = "DEVPULSE_CONFIG"
 	KeyringService        = "devpulse"
-	defaultModelFast      = "gemini-2.5-flash-lite"
-	defaultModelDeep      = "gemini-2.5-flash"
-	legacyModelFast       = "gemini-1.5-flash"
-	legacyModelDeep       = "gemini-1.5-pro"
 	defaultCacheHours     = 24
 	defaultFuzzyThreshold = 50
 	dirPermission         = 0o700
@@ -121,8 +117,6 @@ func (m *Manager) LogsDir() string {
 func defaultConfig() Config {
 	return Config{
 		RegisteredRepos:    make(map[string]string),
-		ModelFast:          defaultModelFast,
-		ModelDeep:          defaultModelDeep,
 		CacheDurationHours: defaultCacheHours,
 		FuzzyThreshold:     defaultFuzzyThreshold,
 	}
@@ -132,22 +126,6 @@ func (m *Manager) applyDefaults() bool {
 	changed := false
 	if m.config.RegisteredRepos == nil {
 		m.config.RegisteredRepos = make(map[string]string)
-		changed = true
-	}
-	if strings.TrimSpace(m.config.ModelFast) == "" {
-		m.config.ModelFast = defaultModelFast
-		changed = true
-	}
-	if m.config.ModelFast == legacyModelFast {
-		m.config.ModelFast = defaultModelFast
-		changed = true
-	}
-	if strings.TrimSpace(m.config.ModelDeep) == "" {
-		m.config.ModelDeep = defaultModelDeep
-		changed = true
-	}
-	if m.config.ModelDeep == legacyModelDeep {
-		m.config.ModelDeep = defaultModelDeep
 		changed = true
 	}
 	if m.config.CacheDurationHours <= 0 {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Nishanth1812/devpulse/internal/ai"
 	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/logger"
 	"github.com/spf13/cobra"
@@ -73,4 +74,26 @@ func commandName(cmd *cobra.Command) string {
 		return "devpulse"
 	}
 	return cmd.CommandPath()
+}
+
+// resolveModel returns the model to use for a command: the configured
+// model.fast / model.deep value when set and compatible with the active
+// provider, otherwise the provider's built-in default. Deep models are used by
+// commands that need deeper reasoning (resume).
+func resolveModel(command string, deep bool) string {
+	key := "model.fast"
+	if deep {
+		key = "model.deep"
+	}
+
+	configured, err := manager.Get(key)
+	if err != nil {
+		configured = ""
+	}
+
+	model, ignored := ai.ResolveModel(provider, configured, deep)
+	if ignored {
+		logger.Log("WARN", command, fmt.Sprintf("ignoring %s=%s: not compatible with provider %s", key, configured, provider))
+	}
+	return model
 }

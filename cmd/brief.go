@@ -48,8 +48,9 @@ func runBrief(cmd *cobra.Command, args []string) error {
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting repository data…")
 	repoData, err := collector.CollectRepo(repoPath, models.CollectOptions{
-		MaxCommits:  20,
-		IncludeDiff: !redactDiff,
+		MaxCommits:      20,
+		FullDiffCommits: 10,
+		IncludeDiff:     !redactDiff,
 	})
 	collectSpinner.Stop()
 	if err != nil {
@@ -93,10 +94,12 @@ func runBrief(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		w := cmd.OutOrStdout()
-		estTokens := len(prompt) / 4
+		estTokens := ai.EstimateTokens(prompt)
+		bk := ai.BreakdownTokens([]models.RepoData{repoData}, goals)
 		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
+		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (diffs ~%d, plan ~%d, notes ~%d, goals ~%d)\n\n",
+			estTokens, bk.Diffs, bk.Plan, bk.Notes, bk.Goals)
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
@@ -108,7 +111,7 @@ func runBrief(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := ai.NewClient(provider, apiKey, "")
+	client, err := ai.NewClient(provider, apiKey, resolveModel("brief", false))
 	if err != nil {
 		return fmt.Errorf("brief: initialize AI client: %w", err)
 	}

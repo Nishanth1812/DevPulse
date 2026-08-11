@@ -89,7 +89,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting commit history for file...")
-	commits, err := collector.CollectFileCommits(repoPath, filePath, 50)
+	commits, err := collector.CollectFileCommits(repoPath, filePath, 50, 15)
 	collectSpinner.Stop()
 	if err != nil {
 		logger.LogError("why", err)
@@ -130,12 +130,16 @@ func runWhy(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		w := cmd.OutOrStdout()
-		estTokens := len(prompt) / 4
+		estTokens := ai.EstimateTokens(prompt)
+		diffTokens := 0
+		for _, c := range commits {
+			diffTokens += ai.EstimateTokens(c.DiffSnippet)
+		}
 		_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 		_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
 		_, _ = fmt.Fprintf(w, "File: %s\n", filePath)
 		_, _ = fmt.Fprintf(w, "Commits: %d\n", len(commits))
-		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d\n\n", estTokens)
+		_, _ = fmt.Fprintf(w, "Estimated tokens: ~%d (file diffs ~%d)\n\n", estTokens, diffTokens)
 		_, _ = fmt.Fprintf(w, "%s\n\n", prompt)
 		_, _ = fmt.Fprintf(w, "=== END DRY RUN ===\n")
 		return nil
@@ -147,7 +151,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := ai.NewClient(provider, apiKey, "")
+	client, err := ai.NewClient(provider, apiKey, resolveModel("why", false))
 	if err != nil {
 		return fmt.Errorf("why: initialize AI client: %w", err)
 	}
