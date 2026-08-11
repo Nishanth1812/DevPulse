@@ -63,8 +63,9 @@ func runBrief(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "brief", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	if briefCache != nil {
-		if rawJSON, ok := briefCache.GetRaw(repoName, repoData.HeadSHA, provider, "brief", cacheMaxAge); ok {
+	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, fmt.Sprintf("%t", redactDiff))
+	if !dryRun && briefCache != nil {
+		if rawJSON, ok := briefCache.GetRaw(repoName, cacheKey, provider, "brief", cacheMaxAge); ok {
 			logger.LogCacheEvent("brief", repoName, "hit")
 			var cached ai.BriefResponse
 			if err := json.Unmarshal(rawJSON, &cached); err == nil {
@@ -140,7 +141,7 @@ func runBrief(cmd *cobra.Command, args []string) error {
 
 	if briefCache != nil {
 		if data, err := json.Marshal(brief); err == nil {
-			if storeErr := briefCache.PutRaw(repoName, repoData.HeadSHA, provider, "brief", data); storeErr != nil {
+			if storeErr := briefCache.PutRaw(repoName, cacheKey, provider, "brief", data); storeErr != nil {
 				logger.Log("WARN", "brief", "cache_store_failed: "+storeErr.Error())
 			}
 		}

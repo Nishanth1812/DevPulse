@@ -22,18 +22,17 @@ func (m *Manager) InitializeGoalsFile() (created bool, path string, hasAPIKey bo
 
 	content := strings.TrimSpace(`# DevPulse Goals
 
-## Current Focus
-- Keep repository work visible and intentional.
+## Now
+Things you are actively trying to finish this sprint or this week.
 
-## Short Term
-- Register active repositories.
-- Build useful daily development context.
+## Next
+Things that become active once the Now items are done.
 
-## Long Term
-- Prepare AI-powered repository briefings.
+## Deadlines
+YYYY-MM-DD — description. DevPulse reads these and flags urgency.
 
-## Notes
-- Add project-specific notes here.
+## Someday
+Projects or ideas you are not touching now but do not want to forget.
 `) + "\n"
 
 	if err := os.WriteFile(path, []byte(content), filePermission); err != nil {

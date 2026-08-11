@@ -131,13 +131,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		icon := "  "
 		switch r.status {
 		case "PASS":
-			icon = "\033[32m[PASS]\033[0m"
+			icon = colored("32", "[PASS]")
 			passCount++
 		case "WARN":
-			icon = "\033[33m[WARN]\033[0m"
+			icon = colored("33", "[WARN]")
 			warnCount++
 		case "FAIL":
-			icon = "\033[31m[FAIL]\033[0m"
+			icon = colored("31", "[FAIL]")
 			failCount++
 		}
 		if _, err := fmt.Fprintf(w, "%s %s\n", icon, r.message); err != nil {
@@ -159,6 +159,14 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	_, err := fmt.Fprintf(w, "All checks passed (%d)\n", passCount)
 	return err
+}
+
+// colored wraps text in an ANSI color code unless color output is disabled.
+func colored(code, text string) string {
+	if noColor {
+		return text
+	}
+	return "\033[" + code + "m" + text + "\033[0m"
 }
 
 // countPlanFiles returns the number of known plan files found in a repo.

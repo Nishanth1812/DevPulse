@@ -108,8 +108,9 @@ func runResume(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "resume", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	if resumeCache != nil {
-		if rawJSON, ok := resumeCache.GetRaw(repoName, repoData.HeadSHA, provider, "resume", cacheMaxAge); ok {
+	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, since, fmt.Sprintf("%t", redactDiff))
+	if !dryRun && resumeCache != nil {
+		if rawJSON, ok := resumeCache.GetRaw(repoName, cacheKey, provider, "resume", cacheMaxAge); ok {
 			logger.LogCacheEvent("resume", repoName, "hit")
 			var cached ai.ResumeResponse
 			if err := json.Unmarshal(rawJSON, &cached); err == nil {
@@ -185,7 +186,7 @@ func runResume(cmd *cobra.Command, args []string) error {
 
 	if resumeCache != nil {
 		if data, err := json.Marshal(summary); err == nil {
-			if storeErr := resumeCache.PutRaw(repoName, repoData.HeadSHA, provider, "resume", data); storeErr != nil {
+			if storeErr := resumeCache.PutRaw(repoName, cacheKey, provider, "resume", data); storeErr != nil {
 				logger.Log("WARN", "resume", "cache_store_failed: "+storeErr.Error())
 			}
 		}

@@ -36,6 +36,20 @@ func (c *Cache) fileName(repo, headSHA, provider, command string) string {
 	return fmt.Sprintf("%x.json", sum)
 }
 
+// Hash returns a hex SHA-256 of the given parts, used to build cache keys from
+// multiple inputs (e.g. all repo HEADs, or HEAD plus plan-file hash) so cached
+// entries invalidate when any contributing input changes.
+func Hash(parts ...string) string {
+	h := sha256.New()
+	for i, part := range parts {
+		if i > 0 {
+			h.Write([]byte{0})
+		}
+		h.Write([]byte(part))
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
 // GetRaw returns the cached raw JSON payload if one exists and is newer than maxAge.
 // The boolean is false on miss, expired entry, or any read/decode error.
 func (c *Cache) GetRaw(repo, headSHA, provider, command string, maxAge time.Duration) (json.RawMessage, bool) {

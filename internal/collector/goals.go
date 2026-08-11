@@ -42,17 +42,21 @@ func splitSections(content string) map[string]string {
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
-		switch strings.TrimSpace(line) {
-		case "# Now":
+		heading := strings.TrimSpace(line)
+		heading = strings.TrimPrefix(heading, "## ")
+		heading = strings.TrimPrefix(heading, "# ")
+
+		switch heading {
+		case "Now":
 			current = "Now"
 			continue
-		case "# Next":
+		case "Next":
 			current = "Next"
 			continue
-		case "# Deadlines":
+		case "Deadlines":
 			current = "Deadlines"
 			continue
-		case "# Someday":
+		case "Someday":
 			current = "Someday"
 			continue
 		}

@@ -106,9 +106,14 @@ func runWhy(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 
-	// Cache key includes file path
-	cacheKey := repoName + ":" + filePath
-	if whyCache != nil {
+	// Cache key includes the file path and the newest commit touching it, so
+	// the archaeology invalidates when the file changes.
+	newestSHA := ""
+	if len(commits) > 0 {
+		newestSHA = commits[len(commits)-1].SHA
+	}
+	cacheKey := cache.Hash(repoName, filePath, newestSHA)
+	if !dryRun && whyCache != nil {
 		if rawJSON, ok := whyCache.GetRaw(cacheKey, cacheKey, provider, "why", cacheMaxAge); ok {
 			logger.LogCacheEvent("why", cacheKey, "hit")
 			var cached ai.WhyResponse

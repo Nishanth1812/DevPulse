@@ -46,7 +46,7 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		data, err := collector.CollectRepo(r.Path, models.CollectOptions{
 			MaxCommits:      10,
 			FullDiffCommits: 10,
-			IncludeDiff:     !redactDiff,
+			IncludeDiff:     false,
 		})
 		if err != nil {
 			collectErrors = append(collectErrors, fmt.Sprintf("%s: %s", r.Name, err.Error()))
@@ -72,9 +72,14 @@ func runFocus(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 
-	// Use a synthetic key for focus (hash of all repo names + HEAD SHAs)
-	focusKey := "focus"
-	if focusCache != nil {
+	// Cache key is a hash of every repo's HEAD so the focus ranking invalidates
+	// when any registered repo moves.
+	var keyParts []string
+	for _, rd := range repoDataList {
+		keyParts = append(keyParts, rd.Name, rd.HeadSHA)
+	}
+	focusKey := cache.Hash(keyParts...)
+	if !dryRun && focusCache != nil {
 		if rawJSON, ok := focusCache.GetRaw(focusKey, focusKey, provider, "focus", cacheMaxAge); ok {
 			logger.LogCacheEvent("focus", focusKey, "hit")
 			var cached ai.FocusResponse
