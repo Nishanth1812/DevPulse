@@ -15,7 +15,15 @@ func apiKeyAccount(provider string) string {
 	return provider + "-api-key"
 }
 
+// HasAPIKey reports whether an API key is available for the provider, matching
+// the precedence of GetAPIKey: the *_API_KEY environment variable first, then
+// the OS keychain.
 func HasAPIKey(provider string) (bool, error) {
+	envVar := strings.ToUpper(provider) + "_API_KEY"
+	if v := strings.TrimSpace(os.Getenv(envVar)); v != "" {
+		return true, nil
+	}
+
 	_, err := keyring.Get(KeyringService, apiKeyAccount(provider))
 	if err == nil {
 		return true, nil

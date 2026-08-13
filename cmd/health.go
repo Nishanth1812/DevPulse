@@ -12,6 +12,8 @@ import (
 	"github.com/Nishanth1812/devpulse/internal/output"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
 )
 
@@ -21,8 +23,8 @@ var healthCmd = &cobra.Command{
 	Long: `Fully rule-based (no LLM). Detects:
 - Merged branches not deleted
 - TODO/FIXME line counts per repo
-- Repos with zero commits in 14 days that had regular activity before
-- Plan file items in the Now section for more than 30 days without appearing in commits`,
+- Repos whose last commit is more than 14 days old but that have earlier
+  history (previously active, now silent)`,
 	Args: cobra.NoArgs,
 	RunE: runHealth,
 }
@@ -146,7 +148,6 @@ func checkTodoAccumulation(repoPath, repoName string) []healthIssue {
 	var issues []healthIssue
 
 	todoCount := 0
-	fixmeCount := 0
 
 	todoPattern := regexp.MustCompile(`(?i)\b(TODO|FIXME)\b`)
 
@@ -181,9 +182,6 @@ func checkTodoAccumulation(repoPath, repoName string) []healthIssue {
 		for _, line := range lines {
 			if todoPattern.MatchString(line) {
 				todoCount++
-			}
-			if strings.Contains(strings.ToUpper(line), "FIXME") {
-				fixmeCount++
 			}
 		}
 
@@ -223,11 +221,28 @@ func checkStaleRepo(r *git.Repository, repoName string) []healthIssue {
 	daysSinceLastCommit := time.Since(commit.Committer.When).Hours() / 24
 
 	if daysSinceLastCommit > 14 {
-		issues = append(issues, healthIssue{
-			Repo:    repoName,
-			Kind:    "STALE",
-			Message: fmt.Sprintf("no commits in %d days (last: %s)", int(daysSinceLastCommit), commit.Committer.When.Format("2006-01-02")),
-		})
+		// Only flag repos that were active before going quiet: a brand-new repo
+		// with a single commit has no "regular activity" to have lost.
+		hasHistory := false
+		iter, err := r.Log(&git.LogOptions{From: commit.Hash, Order: git.LogOrderCommitterTime})
+		if err == nil {
+			iter.ForEach(func(c *object.Commit) error {
+				if time.Since(c.Committer.When).Hours()/24 > 14 {
+					hasHistory = true
+					return storer.ErrStop
+				}
+				return nil
+			})
+			iter.Close()
+		}
+
+		if hasHistory {
+			issues = append(issues, healthIssue{
+				Repo:    repoName,
+				Kind:    "STALE",
+				Message: fmt.Sprintf("no commits in %d days (last: %s)", int(daysSinceLastCommit), commit.Committer.When.Format("2006-01-02")),
+			})
+		}
 	}
 
 	return issues

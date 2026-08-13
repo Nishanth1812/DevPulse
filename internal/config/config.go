@@ -34,7 +34,7 @@ type Manager struct {
 }
 
 func Load() (*Manager, error) {
-	baseDir, err := defaultBaseDir()
+	baseDir, err := WorkspaceBaseDir()
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +140,22 @@ func (m *Manager) applyDefaults() bool {
 	return changed
 }
 
+// WorkspaceBaseDir returns the root DevPulse data directory. When the
+// DEVPULSE_CONFIG env var points at a config file, the workspace follows it so
+// notes, goals, cache, and logs live alongside the config; otherwise it is
+// ~/.devpulse.
+func WorkspaceBaseDir() (string, error) {
+	if override := strings.TrimSpace(os.Getenv(ConfigEnv)); override != "" {
+		absolutePath, err := filepath.Abs(override)
+		if err != nil {
+			return "", fmt.Errorf("resolve %s path: %w", ConfigEnv, err)
+		}
+		return filepath.Dir(filepath.Clean(absolutePath)), nil
+	}
+
+	return defaultBaseDir()
+}
+
 func defaultBaseDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -166,7 +182,6 @@ func ensureWorkspace(baseDir string, configPath string) error {
 		baseDir,
 		filepath.Join(baseDir, "cache"),
 		filepath.Join(baseDir, "logs"),
-		filepath.Join(baseDir, "history"),
 		filepath.Join(baseDir, "notes"),
 	}
 

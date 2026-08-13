@@ -34,9 +34,9 @@ var debugCollectCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(string(output))
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(output))
 
-		return nil
+		return err
 	},
 }
 
