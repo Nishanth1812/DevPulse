@@ -81,6 +81,11 @@ func init() {
 
 var highEntropyRe = regexp.MustCompile(`[A-Za-z0-9+/=]{40,}`)
 
+// highEntropyHintRe matches a secret-associated keyword on the same line before
+// a candidate, so plain long base64 blobs (data URIs, image data, tokens in
+// diffs) are not flagged as secrets.
+var highEntropyHintRe = regexp.MustCompile(`(?i)(key|secret|token|password|passwd|credential|bearer|session|authorization)\b`)
+
 func shannonEntropy(s string) float64 {
 	if len(s) == 0 {
 		return 0
@@ -115,9 +120,17 @@ func ScanPrompt(prompt string) ScanResult {
 		redacted = p.regex.ReplaceAllString(redacted, p.replace)
 	}
 
-	candidates := highEntropyRe.FindAllString(redacted, -1)
-	for _, c := range candidates {
-		if shannonEntropy(c) > 4.5 {
+	for _, line := range strings.Split(redacted, "\n") {
+		// Only consider a high-entropy run a secret when a hint keyword appears
+		// on the same line before it. This keeps data URIs and long base64
+		// payloads (images, binary blobs) from being over-flagged.
+		if !highEntropyHintRe.MatchString(line) {
+			continue
+		}
+		for _, c := range highEntropyRe.FindAllString(line, -1) {
+			if shannonEntropy(c) <= 4.5 {
+				continue
+			}
 			matches = append(matches, Match{Pattern: "high-entropy-string"})
 			redacted = strings.ReplaceAll(redacted, c, "[REDACTED HIGH-ENTROPY STRING]")
 		}

@@ -95,10 +95,32 @@ func TestScanPrompt_NoFalsePositiveOnNormalText(t *testing.T) {
 	}
 }
 
+func TestScanPrompt_NoFalsePositiveOnDataURI(t *testing.T) {
+	// A base64 image embedded in a diff is legitimate content, not a secret.
+	input := `+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">`
+	result := ScanPrompt(input)
+	for _, m := range result.Matches {
+		if m.Pattern == "high-entropy-string" {
+			t.Fatalf("data URI was incorrectly flagged as high-entropy: matches=%v", result.Matches)
+		}
+	}
+}
+
+func TestScanPrompt_HighEntropyNeedsHint(t *testing.T) {
+	// High-entropy base64 with no hint keyword must NOT be flagged.
+	input := "payload = dGhpcyBpcyBhIHJhbmRvbSB0b2tlbiB0aGF0IGlzIHZlcnkgbG9uZyBhbmQgc2VjcmV0"
+	result := ScanPrompt(input)
+	for _, m := range result.Matches {
+		if m.Pattern == "high-entropy-string" {
+			t.Fatalf("base64 without a hint keyword was flagged: matches=%v", result.Matches)
+		}
+	}
+}
+
 func TestScanPrompt_ShannonEntropy(t *testing.T) {
 	tests := []struct {
-		input   string
-		minEnt  float64
+		input  string
+		minEnt float64
 	}{
 		{"AAAA", 0.0},
 		{"ABCD", 2.0},

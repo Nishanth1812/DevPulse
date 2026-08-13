@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Nishanth1812/devpulse/internal/models"
+	git "github.com/go-git/go-git/v5"
 )
 
 func (m *Manager) ListRepositories() []models.RegisteredRepo {
@@ -41,6 +42,12 @@ func (m *Manager) RegisterRepository(path string) (models.RegisteredRepo, error)
 	name := filepath.Base(absolutePath)
 	if name == "." || name == string(filepath.Separator) || name == "" {
 		return models.RegisteredRepo{}, fmt.Errorf("could not derive repository name from %q", absolutePath)
+	}
+
+	// Only git repositories are usable; validate early so a mistaken path is
+	// rejected here rather than surfacing confusing errors from every command.
+	if _, err := git.PlainOpen(absolutePath); err != nil {
+		return models.RegisteredRepo{}, fmt.Errorf("path %q is not a git repository: %w", absolutePath, err)
 	}
 
 	if _, exists := m.config.RegisteredRepos[name]; exists {

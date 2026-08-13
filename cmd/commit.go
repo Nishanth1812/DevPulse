@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -29,6 +30,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 
 	diffBytes, err := exec.Command("git", "diff", "--staged").Output()
 	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf("commit: the git command-line tool is required for this command (staged changes live in the index); install git and try again")
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return fmt.Errorf("commit: run git diff --staged: %w (%s)", err, strings.TrimSpace(string(exitErr.Stderr)))
+		}
 		return fmt.Errorf("commit: run git diff --staged: %w", err)
 	}
 	diff := strings.TrimSpace(string(diffBytes))

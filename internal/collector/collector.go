@@ -46,14 +46,13 @@ func CollectRepo(
 	notes := loadNotes(repoName)
 
 	return models.RepoData{
-		Name:           repoName,
-		Path:           absPath,
-		Branch:         branch,
-		HeadSHA:        headSHA,
-		Commits:        commits,
-		PlanSummary:    planSummary,
-		ActiveBranches: []string{branch},
-		Notes:          notes,
+		Name:        repoName,
+		Path:        absPath,
+		Branch:      branch,
+		HeadSHA:     headSHA,
+		Commits:     commits,
+		PlanSummary: planSummary,
+		Notes:       notes,
 	}, nil
 }
 

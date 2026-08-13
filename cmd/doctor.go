@@ -13,7 +13,7 @@ import (
 )
 
 type checkResult struct {
-	status string // "PASS", "WARN", "FAIL"
+	status  string // "PASS", "WARN", "FAIL"
 	message string
 }
 

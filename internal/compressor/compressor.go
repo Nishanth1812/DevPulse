@@ -159,9 +159,12 @@ func splitDiffFiles(diff string) [][]string {
 	return files
 }
 
+// truncateLine truncates a line to max runes, never splitting a multi-byte
+// UTF-8 rune in half (which would emit invalid bytes into a prompt).
 func truncateLine(line string, max int) string {
-	if len(line) <= max {
+	runes := []rune(line)
+	if len(runes) <= max {
 		return line
 	}
-	return line[:max] + "..."
+	return string(runes[:max]) + "..."
 }

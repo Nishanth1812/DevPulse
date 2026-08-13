@@ -17,6 +17,11 @@ import (
 // when a cache miss actually requires a call.
 type ClientFactory func() (Client, error)
 
+// defaultMaxPromptTokens is the estimated-token ceiling enforced before any
+// API call. It is conservative relative to modern context windows so that
+// oversized prompts fail with a helpful message instead of a provider error.
+const defaultMaxPromptTokens = 64_000
+
 // RunOptions carries everything the shared LLM pipeline needs. Each command
 // provides callbacks so the cache/prompt/parse/dry-run behaviour is identical
 // everywhere while the command-specific parts stay with the command.
@@ -34,10 +39,14 @@ type RunOptions struct {
 	CacheKey string
 	// CacheMaxAge bounds how long a cached entry is valid.
 	CacheMaxAge time.Duration
+	// MaxPromptTokens caps the estimated prompt size before the API call.
+	// Zero uses the default guard. Prompts that exceed the cap fail fast
+	// instead of overflowing the model's context window.
+	MaxPromptTokens int
 	// DryRun prints the prompt instead of calling the API.
 	DryRun bool
 	// Out and ErrOut receive user-facing output and warnings.
-	Out   io.Writer
+	Out    io.Writer
 	ErrOut io.Writer
 	// Spinner, when set, wraps the API call; returns a stop function.
 	Spinner func(message string) func()
@@ -56,18 +65,40 @@ type RunOptions struct {
 // and cache store. It returns the parsed result, or nil on dry-run. On a cache
 // hit the client is never constructed and the API is never called.
 func Run(ctx context.Context, opts RunOptions) (any, error) {
+	// Goals are loaded before the cache lookup so their content can be folded
+	// into the cache key: changing goals/notes must invalidate cached output.
+	goals := opts.LoadGoals()
+
+	cacheKey := opts.CacheKey
 	if !opts.DryRun && opts.Cache != nil {
-		if raw, ok := opts.Cache.GetRaw(opts.RepoKey, opts.CacheKey, opts.Provider, opts.Command, opts.CacheMaxAge); ok {
+		cacheKey = cache.Hash(opts.CacheKey, encodeGoals(goals))
+		if raw, ok := opts.Cache.GetRaw(opts.RepoKey, cacheKey, opts.Provider, opts.Command, opts.CacheMaxAge); ok {
 			logger.LogCacheEvent(opts.Command, opts.RepoKey, "hit")
 			if data, err := opts.Parse(string(raw)); err == nil {
 				return data, nil
+			}
+			// The cached entry is stale (unparseable). Drop it so the next run
+			// refetches instead of failing on the same poisoned entry.
+			logger.Log("WARN", opts.Command, "cache_parse_failed; invalidating entry")
+			if derr := opts.Cache.Delete(opts.RepoKey, cacheKey, opts.Provider, opts.Command); derr != nil {
+				logger.Log("WARN", opts.Command, "cache_delete_failed: "+derr.Error())
 			}
 		}
 		logger.LogCacheEvent(opts.Command, opts.RepoKey, "miss")
 	}
 
-	goals := opts.LoadGoals()
 	prompt := opts.BuildPrompt(goals)
+
+	// Fail fast if the prompt would overflow the model's context window.
+	maxTokens := opts.MaxPromptTokens
+	if maxTokens <= 0 {
+		maxTokens = defaultMaxPromptTokens
+	}
+	if EstimateTokens(prompt) > maxTokens {
+		err := fmt.Errorf("%s: prompt too large (~%d estimated tokens; cap %d). Reduce the commit window (--since / max commits) or run with --redact-diff", opts.Command, EstimateTokens(prompt), maxTokens)
+		logger.LogError(opts.Command, err)
+		return nil, err
+	}
 
 	scan := security.ScanPrompt(prompt)
 	if scan.ContainsSecrets {
@@ -113,7 +144,7 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 
 	if opts.Cache != nil {
 		if payload, merr := json.Marshal(data); merr == nil {
-			if serr := opts.Cache.PutRaw(opts.RepoKey, opts.CacheKey, opts.Provider, opts.Command, payload); serr != nil {
+			if serr := opts.Cache.PutRaw(opts.RepoKey, cacheKey, opts.Provider, opts.Command, payload); serr != nil {
 				logger.Log("WARN", opts.Command, "cache_store_failed: "+serr.Error())
 			}
 		}
@@ -122,6 +153,7 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 	return data, nil
 }
 
+// printDryRun writes a formatted dry-run dump to w.
 func printDryRun(w io.Writer, provider, info, prompt string) {
 	_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 	_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
@@ -131,4 +163,15 @@ func printDryRun(w io.Writer, provider, info, prompt string) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, prompt)
 	_, _ = fmt.Fprintln(w, "=== END DRY RUN ===")
+}
+
+// encodeGoals produces a deterministic string for folding the goals file into
+// cache keys. Deadlines include DaysUntil so a goal approaching its deadline
+// naturally invalidates older cached output.
+func encodeGoals(g models.GoalsData) string {
+	data, err := json.Marshal(g)
+	if err != nil {
+		return fmt.Sprintf("%+v", g)
+	}
+	return string(data)
 }

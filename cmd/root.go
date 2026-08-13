@@ -42,8 +42,10 @@ var rootCmd = &cobra.Command{
 		}
 		manager = loaded
 
+		// Logging is best-effort: a read-only logs directory (or a mounted
+		// read-only home) must not break every command.
 		if err := logger.Init(manager.LogsDir()); err != nil {
-			return err
+			_, _ = fmt.Fprintf(os.Stderr, "warning: logging unavailable: %v\n", err)
 		}
 
 		if verbose {

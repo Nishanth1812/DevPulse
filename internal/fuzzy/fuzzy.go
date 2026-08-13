@@ -3,6 +3,7 @@ package fuzzy
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/sahilm/fuzzy"
 )
@@ -119,21 +120,5 @@ func trimSpaces(s string) string {
 }
 
 func equalFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca := a[i]
-		cb := b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 32
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 32
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
+	return strings.EqualFold(a, b)
 }

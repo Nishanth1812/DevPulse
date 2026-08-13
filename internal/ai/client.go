@@ -48,13 +48,18 @@ func DefaultModel(provider string, deep bool) string {
 // ModelCompatible reports whether a configured model name plausibly belongs to
 // a provider. This prevents a gemini model saved in config from being sent to
 // Groq (or vice versa), which would otherwise fail with an unknown-model error.
+// Matching is by prefix so that provider names are never rejected merely for
+// containing an ambiguous substring (e.g. a Groq model named "...gemini...").
 func ModelCompatible(provider, model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
+	if model == "" {
+		return true
+	}
 	switch provider {
 	case ProviderGemini:
-		return strings.Contains(model, "gemini")
+		return strings.HasPrefix(model, "gemini-") || strings.HasPrefix(model, "gemini/")
 	case ProviderGroq:
-		return !strings.Contains(model, "gemini")
+		return !strings.HasPrefix(model, "gemini-") && !strings.HasPrefix(model, "gemini/")
 	default:
 		return true
 	}

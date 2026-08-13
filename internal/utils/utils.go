@@ -6,15 +6,27 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Nishanth1812/devpulse/internal/config"
 )
 
+// ExpandHome expands a leading "~" to the user's home directory. It only
+// treats "~" as home when it is the first character and is followed by a path
+// separator or is the whole string, so paths like "~/a" expand but a literal
+// "~" inside a path (e.g. "x~y") is left untouched.
 func ExpandHome(path string) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return path
 	}
 
-	return strings.Replace(path, "~", home, 1)
+	if path == "~" {
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
 
 func FileExists(path string) bool {
@@ -35,15 +47,25 @@ func ReadFile(path string) (string, error) {
 	return string(data), nil
 }
 
+// WorkspaceBaseDir resolves the DevPulse data root, honouring DEVPULSE_CONFIG
+// so notes/goals/cache/logs follow the config location.
+func WorkspaceBaseDir() string {
+	base, err := config.WorkspaceBaseDir()
+	if err != nil {
+		return ExpandHome("~/.devpulse")
+	}
+	return base
+}
+
 func NotesPath(repo string) string {
 	return filepath.Join(
-		ExpandHome("~/.devpulse/notes"),
+		filepath.Join(WorkspaceBaseDir(), "notes"),
 		repo+".md",
 	)
 }
 
 func GoalsPath() string {
-	return ExpandHome("~/.devpulse/goals.md")
+	return filepath.Join(WorkspaceBaseDir(), "goals.md")
 }
 
 func DaysUntil(t time.Time) int {

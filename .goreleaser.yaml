@@ -47,6 +47,8 @@ archives:
       - LICENSE*
       - README.md
       - SECURITY.md
+      - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md
 
 checksum:
   name_template: 'checksums.txt'
@@ -55,13 +57,43 @@ snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
 changelog:
+  use: git
   sort: asc
+  groups:
+    - title: "Features"
+      regexp: "^.*feat[(\\w)]*:.*$"
+      order: 0
+    - title: "Bug fixes"
+      regexp: "^.*fix[(\\w)]*:.*$"
+      order: 10
+    - title: "Security"
+      regexp: "^.*security[(\\w)]*:.*$"
+      order: 20
+    - title: "Performance"
+      regexp: "^.*perf[(\\w)]*:.*$"
+      order: 30
+    - title: "Refactors"
+      regexp: "^.*refactor[(\\w)]*:.*$"
+      order: 40
+    - title: "CI & build"
+      regexp: "^.*(ci|build)[(\\w)]*:.*$"
+      order: 50
+    - title: "Chores"
+      regexp: "^.*chore[(\\w)]*:.*$"
+      order: 60
+    - title: "Other changes"
+      order: 999
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
+      - "^Merge pull request"
+      - "^Merge branch"
 
 release:
+  header: |-
+    ## What's Changed
+
+    View the full diff on [GitHub](https://github.com/Nishanth1812/DevPulse/compare/{{ .PreviousTag }}...{{ .Tag }}).
+
   footer: >-
 
     ---

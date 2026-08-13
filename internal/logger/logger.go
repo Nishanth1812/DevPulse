@@ -60,10 +60,9 @@ func LogError(command string, err error) {
 	Log("ERROR", command, "error="+sanitize(err.Error()))
 }
 
-func LogAPICall(command string, keyIndex int, model string, tokens int, latency time.Duration) {
+func LogAPICall(command string, model string, tokens int, latency time.Duration) {
 	Log("INFO", command, fmt.Sprintf(
-		"api_call key_index=%d model=%s tokens=%d latency=%s",
-		keyIndex,
+		"api_call model=%s tokens=%d latency=%s",
 		sanitize(model),
 		tokens,
 		latency.String(),
