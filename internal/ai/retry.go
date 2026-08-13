@@ -23,12 +23,17 @@ func retryable(err error) bool {
 	if errors.Is(err, context.Canceled) {
 		return false
 	}
+	// A deadline already passed: retrying cannot succeed and only triples
+	// wall-clock time. Only user cancellation was previously excluded.
+	if errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
 
 	msg := strings.ToLower(err.Error())
 	for _, pattern := range []string{
 		"rate limit", "rate_limit", "too many requests", "429",
 		"500", "502", "503", "504",
-		"timeout", "deadline exceeded", "unavailable", "temporary",
+		"timeout", "unavailable", "temporary",
 		"connection reset", "reset by peer",
 	} {
 		if strings.Contains(msg, pattern) {

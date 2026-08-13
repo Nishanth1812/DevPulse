@@ -26,8 +26,8 @@ type groqMessage struct {
 
 // groqRequest is the JSON body sent to the Groq chat completions endpoint.
 type groqRequest struct {
-	Model          string             `json:"model"`
-	Messages       []groqMessage      `json:"messages"`
+	Model          string              `json:"model"`
+	Messages       []groqMessage       `json:"messages"`
 	ResponseFormat *groqResponseFormat `json:"response_format,omitempty"`
 }
 

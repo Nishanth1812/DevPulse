@@ -37,7 +37,7 @@ type RunOptions struct {
 	// DryRun prints the prompt instead of calling the API.
 	DryRun bool
 	// Out and ErrOut receive user-facing output and warnings.
-	Out   io.Writer
+	Out    io.Writer
 	ErrOut io.Writer
 	// Spinner, when set, wraps the API call; returns a stop function.
 	Spinner func(message string) func()

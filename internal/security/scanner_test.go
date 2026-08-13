@@ -97,8 +97,8 @@ func TestScanPrompt_NoFalsePositiveOnNormalText(t *testing.T) {
 
 func TestScanPrompt_ShannonEntropy(t *testing.T) {
 	tests := []struct {
-		input   string
-		minEnt  float64
+		input  string
+		minEnt float64
 	}{
 		{"AAAA", 0.0},
 		{"ABCD", 2.0},
