@@ -8,13 +8,28 @@ import (
 	"strings"
 )
 
+// hasAnyAPIKey reports whether the user has configured a key for either
+// provider. It treats a keyring/env check failure as "no key" so setup advice
+// is not blocked by a transient keyring error.
+func hasAnyAPIKey() (bool, error) {
+	for _, p := range []string{"groq", "gemini"} {
+		has, err := HasAPIKey(p)
+		if err == nil && has {
+			return true, nil
+		}
+	}
+	// Distinguish "no key anywhere" from a genuine lookup error.
+	_, err := HasAPIKey("groq")
+	return false, err
+}
+
 func (m *Manager) InitializeGoalsFile() (created bool, path string, hasAPIKey bool, err error) {
 	path = filepath.Join(m.baseDir, "goals.md")
+	hasAPIKey, err = hasAnyAPIKey()
+	if err != nil {
+		return false, path, false, err
+	}
 	if _, err := os.Stat(path); err == nil {
-		hasAPIKey, keyErr := HasAPIKey("groq")
-		if keyErr != nil {
-			return false, path, false, keyErr
-		}
 		return false, path, hasAPIKey, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return false, path, false, fmt.Errorf("stat goals file: %w", err)
@@ -37,11 +52,6 @@ Projects or ideas you are not touching now but do not want to forget.
 
 	if err := os.WriteFile(path, []byte(content), filePermission); err != nil {
 		return false, path, false, fmt.Errorf("write goals file: %w", err)
-	}
-
-	hasAPIKey, err = HasAPIKey("groq")
-	if err != nil {
-		return true, path, false, err
 	}
 
 	return true, path, hasAPIKey, nil

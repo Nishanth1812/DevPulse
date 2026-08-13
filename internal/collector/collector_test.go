@@ -138,7 +138,7 @@ func TestCollectFileCommits(t *testing.T) {
 		[]string{"one", "two", "three"},
 	)
 
-	commits, err := CollectFileCommits(dir, "a.txt", 50, 15)
+	commits, err := CollectFileCommits(dir, "a.txt", 50, 15, true)
 	if err != nil {
 		t.Fatalf("CollectFileCommits: %v", err)
 	}
@@ -153,6 +153,17 @@ func TestCollectFileCommits(t *testing.T) {
 	for _, c := range commits[1:] {
 		if c.DiffSnippet == "" {
 			t.Fatalf("expected diff for commit %q", c.Message)
+		}
+	}
+
+	// includeDiff=false must drop all diff snippets.
+	noDiff, err := CollectFileCommits(dir, "a.txt", 50, 15, false)
+	if err != nil {
+		t.Fatalf("CollectFileCommits(no diff): %v", err)
+	}
+	for _, c := range noDiff {
+		if c.DiffSnippet != "" {
+			t.Fatalf("expected no diff for commit %q when includeDiff=false", c.Message)
 		}
 	}
 }

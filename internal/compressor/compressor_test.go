@@ -1,6 +1,7 @@
 package compressor
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -82,6 +83,21 @@ func TestCompressNotesCaps(t *testing.T) {
 	out := CompressNotes(content)
 	if strings.Count(out, "\n") >= maxNoteLines {
 		t.Fatalf("notes not capped: %d lines", strings.Count(out, "\n"))
+	}
+}
+
+func TestCompressNotesKeepsNewest(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < maxNoteLines+5; i++ {
+		fmt.Fprintf(&b, "old-entry-%d\n", i)
+	}
+	b.WriteString("NEWEST-ENTRY\n")
+	out := CompressNotes(b.String())
+	if !strings.Contains(out, "NEWEST-ENTRY") {
+		t.Fatalf("newest note was dropped: %q", out)
+	}
+	if strings.Contains(out, "old-entry-0") {
+		t.Fatalf("oldest notes should be truncated, got: %q", out)
 	}
 }
 

@@ -18,9 +18,12 @@ type Spinner struct {
 	wg       sync.WaitGroup
 }
 
+// NewSpinner returns a spinner. The spinner renders to stderr, so TTY probing
+// must check stderr (not stdout) — otherwise the \r control sequences corrupt
+// redirected stderr when stdout is piped.
 func NewSpinner(noColor bool) *Spinner {
 	return &Spinner{
-		disabled: noColor || !term.IsTerminal(int(os.Stdout.Fd())),
+		disabled: noColor || !term.IsTerminal(int(os.Stderr.Fd())),
 	}
 }
 

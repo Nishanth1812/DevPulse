@@ -100,27 +100,27 @@ func checkMergedBranches(r *git.Repository, repoName string) []healthIssue {
 	}
 
 	mainBranch := ref.Name().Short()
+	// Resolve the merge target once up front rather than inside the loop.
+	mainRef, err := r.Reference(plumbing.NewBranchReferenceName(mainBranch), false)
+	if err != nil {
+		return issues
+	}
+	mainCommit, err := r.CommitObject(mainRef.Hash())
+	if err != nil {
+		return issues
+	}
+
 	mergedCount := 0
 
 	branches.ForEach(func(b *plumbing.Reference) error {
 		name := b.Name().Short()
-		// Skip main/master and current branch
-		if name == mainBranch || name == "main" || name == "master" || name == "develop" {
-			return nil
-		}
-
-		// Check if branch is fully merged into main
-		mainRef, err := r.Reference(plumbing.NewBranchReferenceName(mainBranch), false)
-		if err != nil {
+		// Skip the current (merge target) branch only. The legacy "develop"
+		// convention is only a default when the HEAD actually points at it.
+		if name == mainBranch {
 			return nil
 		}
 
 		commit, err := r.CommitObject(b.Hash())
-		if err != nil {
-			return nil
-		}
-
-		mainCommit, err := r.CommitObject(mainRef.Hash())
 		if err != nil {
 			return nil
 		}

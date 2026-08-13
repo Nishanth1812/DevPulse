@@ -117,6 +117,31 @@ func TestScanPrompt_HighEntropyNeedsHint(t *testing.T) {
 	}
 }
 
+func TestScanPrompt_PEMPrivateKey(t *testing.T) {
+	// Real PEM keys span multiple lines; the body must still be matched.
+	input := `-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA7VtGtl4...
+zX2JqV0mg3gmV7wH0Y3Jq7YyJh3a8W
+-----END RSA PRIVATE KEY-----`
+	result := ScanPrompt(input)
+	if !result.ContainsSecrets {
+		t.Fatal("expected ContainsSecrets=true for multi-line PEM private key")
+	}
+	found := false
+	for _, m := range result.Matches {
+		if m.Pattern == "pem-private-key" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected pem-private-key match, got matches=%v", result.Matches)
+	}
+	if strings.Contains(result.RedactedPrompt, "BEGIN RSA PRIVATE KEY") {
+		t.Fatal("PEM private key was not redacted")
+	}
+}
+
 func TestScanPrompt_ShannonEntropy(t *testing.T) {
 	tests := []struct {
 		input  string

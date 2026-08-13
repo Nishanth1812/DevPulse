@@ -77,9 +77,14 @@ func (c *groqClient) Generate(ctx context.Context, prompt string) (string, error
 		}
 		defer resp.Body.Close()
 
-		raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+		// Read limit+1 bytes so an oversized body is detected rather than
+		// surfacing as a confusing "unexpected end of JSON input".
+		raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 		if err != nil {
 			return "", fmt.Errorf("groq: read response body: %w", err)
+		}
+		if len(raw) > maxResponseBytes {
+			return "", fmt.Errorf("groq: response exceeded %d bytes", maxResponseBytes)
 		}
 
 		if resp.StatusCode != http.StatusOK {

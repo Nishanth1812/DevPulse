@@ -66,7 +66,9 @@ func runResume(cmd *cobra.Command, args []string) error {
 		IncludeDiff:     !redactDiff,
 	}
 	if since != "" {
-		t, err := time.Parse("2006-01-02", since)
+		// Parse in local time (matching git log --since) so the boundary day
+		// aligns with the user's timezone rather than UTC midnight.
+		t, err := time.ParseInLocation("2006-01-02", since, time.Local)
 		if err != nil {
 			return fmt.Errorf("resume: invalid --since date %q: use YYYY-MM-DD format", since)
 		}
@@ -77,6 +79,10 @@ func runResume(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		logger.LogError("resume", err)
 		return fmt.Errorf("resume: collect repository: %w", err)
+	}
+
+	if since != "" && len(repoData.Commits) == 0 {
+		return fmt.Errorf("resume: no commits found in %s after %s", repoName, since)
 	}
 
 	resumeCache, cacheErr := cache.New(filepath.Join(manager.BaseDir(), "cache"))

@@ -48,19 +48,29 @@ func (c *geminiClient) Name() string {
 }
 
 func (c *geminiClient) Generate(ctx context.Context, prompt string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, defaultGeminiTimeout)
-	defer cancel()
-
 	attempt := func(ctx context.Context) (string, error) {
+		// Apply the per-attempt timeout inside the retry closure so each
+		// attempt gets its own deadline (mirroring the groq client), leaving
+		// the retry loop to run on the caller's context.
+		attemptCtx, cancel := context.WithTimeout(ctx, defaultGeminiTimeout)
+		defer cancel()
+
 		start := time.Now()
-		result, err := c.client.Models.GenerateContent(ctx, c.model, genai.Text(prompt), &genai.GenerateContentConfig{
+		result, err := c.client.Models.GenerateContent(attemptCtx, c.model, genai.Text(prompt), &genai.GenerateContentConfig{
 			ResponseMIMEType: "application/json",
 		})
 		if err != nil {
 			return "", fmt.Errorf("gemini: generate content: %w", err)
 		}
+		if result == nil {
+			return "", fmt.Errorf("gemini: empty response")
+		}
 
 		text := result.Text()
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("gemini: response contained no text")
+		}
+
 		totalTokens := 0
 		if result.UsageMetadata != nil {
 			totalTokens = int(result.UsageMetadata.TotalTokenCount)

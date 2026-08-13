@@ -66,7 +66,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting commit history for file...")
-	commits, err := collector.CollectFileCommits(repoPath, filePath, 50, 15)
+	commits, err := collector.CollectFileCommits(repoPath, filePath, 50, 15, !redactDiff)
 	collectSpinner.Stop()
 	if err != nil {
 		logger.LogError("why", err)
@@ -83,13 +83,14 @@ func runWhy(cmd *cobra.Command, args []string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 
-	// Cache key includes the file path and the newest commit touching it, so
-	// the archaeology invalidates when the file changes.
+	// Cache key includes the file path, the newest commit touching it, and the
+	// redact-diff setting so the archaeology invalidates when the file changes
+	// or the prompt content changes.
 	newestSHA := ""
 	if len(commits) > 0 {
 		newestSHA = commits[len(commits)-1].SHA
 	}
-	cacheKey := cache.Hash(repoName, filePath, newestSHA)
+	cacheKey := cache.Hash(repoName, filePath, newestSHA, fmt.Sprintf("%t", redactDiff))
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "why",

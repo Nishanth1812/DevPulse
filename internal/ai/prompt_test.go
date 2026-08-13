@@ -63,6 +63,17 @@ func TestFocusPromptTruncatesPlan(t *testing.T) {
 	}
 }
 
+func TestFocusPromptTruncationIsRuneSafe(t *testing.T) {
+	// 200 multi-byte runes occupy 800 bytes; a byte-based truncation at 300
+	// would split a rune. Rune-based truncation keeps the string valid.
+	repo := sampleRepo()
+	repo.PlanSummary = strings.Repeat("界", 500)
+	p := BuildFocusPrompt([]models.RepoData{repo}, sampleGoals())
+	if strings.Count(p, "界") != 300 {
+		t.Fatalf("expected exactly 300 runes after truncation, got %d", strings.Count(p, "界"))
+	}
+}
+
 func TestRetryable(t *testing.T) {
 	cases := []struct {
 		name string
