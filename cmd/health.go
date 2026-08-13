@@ -222,11 +222,18 @@ func checkStaleRepo(r *git.Repository, repoName string) []healthIssue {
 
 	if daysSinceLastCommit > 14 {
 		// Only flag repos that were active before going quiet: a brand-new repo
-		// with a single commit has no "regular activity" to have lost.
+		// with a single commit has no "regular activity" to have lost. The head
+		// commit itself is skipped — we need an *earlier* commit also older than
+		// the window to prove there was a period of regular activity.
 		hasHistory := false
+		first := true
 		iter, err := r.Log(&git.LogOptions{From: commit.Hash, Order: git.LogOrderCommitterTime})
 		if err == nil {
 			iter.ForEach(func(c *object.Commit) error {
+				if first {
+					first = false
+					return nil
+				}
 				if time.Since(c.Committer.When).Hours()/24 > 14 {
 					hasHistory = true
 					return storer.ErrStop

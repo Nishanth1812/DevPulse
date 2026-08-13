@@ -144,7 +144,7 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 
 	if opts.Cache != nil {
 		if payload, merr := json.Marshal(data); merr == nil {
-			if serr := opts.Cache.PutRaw(opts.RepoKey, opts.CacheKey, opts.Provider, opts.Command, payload); serr != nil {
+			if serr := opts.Cache.PutRaw(opts.RepoKey, cacheKey, opts.Provider, opts.Command, payload); serr != nil {
 				logger.Log("WARN", opts.Command, "cache_store_failed: "+serr.Error())
 			}
 		}

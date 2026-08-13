@@ -99,3 +99,44 @@ func TestSaveConfigRoundTrip(t *testing.T) {
 		t.Fatalf("registered repo not round-tripped: %v", m2.config.RegisteredRepos)
 	}
 }
+
+func TestSaveIsAtomic(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	setConfigEnv(t, filepath.Join(home, "devpulse", "config.toml"))
+
+	m, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// A pre-existing config file must survive a save with no leftover temp file.
+	m.config.RegisteredRepos = map[string]string{"a": "/repo/a"}
+	if err := m.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(m.ConfigPath()); err != nil {
+		t.Fatalf("config file missing after save: %v", err)
+	}
+	if _, err := os.Stat(m.ConfigPath() + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temporary file left behind after save: %v", err)
+	}
+
+	// Config must have restrictive permissions.
+	info, err := os.Stat(m.ConfigPath())
+	if err != nil {
+		t.Fatalf("stat config: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("config permissions = %o, want 600", perm)
+	}
+
+	// The saved file must still parse.
+	m2, err := Load()
+	if err != nil {
+		t.Fatalf("Load after atomic save: %v", err)
+	}
+	if m2.config.RegisteredRepos["a"] != "/repo/a" {
+		t.Fatalf("registered repo lost after save: %v", m2.config.RegisteredRepos)
+	}
+}
