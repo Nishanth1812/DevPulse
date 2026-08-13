@@ -8,5 +8,9 @@ devpulse.exe
 # Local workspace / env
 .env
 .env.local
+
+# Node (stray npm installs, e.g. ccusage) — DevPulse is pure Go
+node_modules/
+
 # Added by goreleaser init:
 dist/

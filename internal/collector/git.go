@@ -122,8 +122,12 @@ func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits i
 		return nil, err
 	}
 
+	// PathFilter walks the log using tree diffs between successive commits and
+	// only yields commits that touched the target path, avoiding a full-history
+	// commit.Stats() scan (which is O(total commits) and reads every tree).
 	refIter, err := repo.Log(&git.LogOptions{
-		From: head.Hash(),
+		From:       head.Hash(),
+		PathFilter: func(path string) bool { return path == filePath },
 	})
 	if err != nil {
 		return nil, err
@@ -135,23 +139,6 @@ func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits i
 	err = refIter.ForEach(func(commit *object.Commit) error {
 		if maxCommits > 0 && len(commits) >= maxCommits {
 			return storer.ErrStop
-		}
-
-		// Check if this commit touched the file
-		stats, err := commit.Stats()
-		if err != nil {
-			return nil
-		}
-
-		touched := false
-		for _, stat := range stats {
-			if stat.Name == filePath {
-				touched = true
-				break
-			}
-		}
-		if !touched {
-			return nil
 		}
 
 		// Get the diff for this file (only for the newest fullDiffCommits commits)
@@ -176,7 +163,7 @@ func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits i
 			SHA:         commit.Hash.String(),
 			Message:     strings.TrimSpace(commit.Message),
 			Author:      commit.Author.Name,
-			Timestamp:   commit.Author.When,
+			Timestamp:   commit.Committer.When,
 			DiffSnippet: diffText,
 		})
 
