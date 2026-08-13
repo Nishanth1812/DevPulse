@@ -20,30 +20,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-
-      - name: Print release context
-        run: |
-          echo "::group::Release context"
-          echo "Tag:        $GITHUB_REF_NAME"
-          echo "Commit:     $GITHUB_SHA"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Runner:     $RUNNER_OS"
-          go version
-          echo "::endgroup::"
 
       - name: Require tag on main
         run: |
-          echo "::group::Tag/main guard"
           MAIN_SHA=$(git rev-parse origin/main)
           TAG_SHA=$(git rev-list -n 1 "$GITHUB_REF_NAME")
-          echo "main HEAD: $MAIN_SHA"
-          echo "tag commit: $TAG_SHA"
           if [ "$MAIN_SHA" != "$TAG_SHA" ]; then
-            echo "::error::tag $GITHUB_REF_NAME is not on main ($MAIN_SHA != $TAG_SHA); refusing to release"
+            echo "error: tag $GITHUB_REF_NAME is not on main ($MAIN_SHA != $TAG_SHA); refusing to release" >&2
             exit 1
           fi
-          echo "::endgroup::"
 
       - name: Check formatting
         run: |
@@ -61,7 +46,6 @@ jobs:
         run: go test ./...
 
       - name: Run GoReleaser
-        id: goreleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -69,22 +53,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Write job summary
-        if: ${{ !cancelled() }}
-        run: |
-          {
-            echo "## Release $GITHUB_REF_NAME"
-            echo ""
-            echo "Triggered by tag: \`$GITHUB_REF_NAME\` on commit \`$GITHUB_SHA\`"
-            echo ""
-            echo "### Artifacts"
-            echo '```text'
-            gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'
-            echo '```'
-            echo ""
-            echo "See the full release at:"
-            echo "- https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
-          } >> "$GITHUB_STEP_SUMMARY"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
