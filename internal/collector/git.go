@@ -29,8 +29,13 @@ func CollectCommits(
 	branch := head.Name().Short()
 	headSHA := head.Hash().String()
 
+	// LogOrderCommitterTime walks commits newest-first by committer time
+	// (matching `git log --since` semantics). Without it, the default DFS
+	// pre-order can visit an old commit early, making a `storer.ErrStop` on the
+	// first out-of-window commit drop valid in-window commits.
 	refIter, err := repo.Log(&git.LogOptions{
-		From: head.Hash(),
+		From:  head.Hash(),
+		Order: git.LogOrderCommitterTime,
 	})
 
 	if err != nil {
@@ -46,8 +51,10 @@ func CollectCommits(
 			return storer.ErrStop
 		}
 
-		// Skip commits before the --since date
-		if opts.Since != nil && commit.Author.When.Before(*opts.Since) {
+		// Skip commits before the --since date. Because the iterator is ordered
+		// by committer time (newest first), the first out-of-window commit means
+		// every later commit is also out of window, so stopping is safe.
+		if opts.Since != nil && commit.Committer.When.Before(*opts.Since) {
 			return storer.ErrStop
 		}
 
@@ -83,7 +90,7 @@ func CollectCommits(
 			SHA:          commit.Hash.String(),
 			Message:      strings.TrimSpace(commit.Message),
 			Author:       commit.Author.Name,
-			Timestamp:    commit.Author.When,
+			Timestamp:    commit.Committer.When,
 			FilesChanged: files,
 			DiffSnippet:  diffText,
 		})
