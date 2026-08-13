@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -81,17 +82,24 @@ func (m *Manager) Save() error {
 		return fmt.Errorf("create config directory: %w", err)
 	}
 
-	file, err := os.OpenFile(m.configPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePermission)
-	if err != nil {
-		return fmt.Errorf("open config file: %w", err)
-	}
-	defer file.Close()
-
-	if err := toml.NewEncoder(file).Encode(m.config); err != nil {
+	// Write via a temp file + rename so a crash mid-write cannot leave a
+	// truncated config that fails to parse on the next load.
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(m.config); err != nil {
 		return fmt.Errorf("encode config file: %w", err)
 	}
-	if err := file.Chmod(filePermission); err != nil {
+
+	tmp := m.configPath + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), filePermission); err != nil {
+		return fmt.Errorf("write config file: %w", err)
+	}
+	if err := os.Chmod(tmp, filePermission); err != nil {
+		_ = os.Remove(tmp)
 		return fmt.Errorf("set config permissions: %w", err)
+	}
+	if err := os.Rename(tmp, m.configPath); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("commit config file: %w", err)
 	}
 
 	return nil

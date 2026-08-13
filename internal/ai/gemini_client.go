@@ -66,7 +66,7 @@ func (c *geminiClient) Generate(ctx context.Context, prompt string) (string, err
 			totalTokens = int(result.UsageMetadata.TotalTokenCount)
 		}
 
-		logger.LogAPICall("gemini", 0, c.model, totalTokens, time.Since(start))
+		logger.LogAPICall("gemini", c.model, totalTokens, time.Since(start))
 
 		return strings.TrimSpace(text), nil
 	}

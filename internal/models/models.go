@@ -22,14 +22,13 @@ type CommitSummary struct {
 }
 
 type RepoData struct {
-	Name           string          `json:"name"`
-	Path           string          `json:"path"`
-	Branch         string          `json:"branch"`
-	HeadSHA        string          `json:"head_sha"`
-	Commits        []CommitSummary `json:"commits"`
-	PlanSummary    string          `json:"plan_summary"`
-	ActiveBranches []string        `json:"active_branches"`
-	Notes          string          `json:"notes"`
+	Name        string          `json:"name"`
+	Path        string          `json:"path"`
+	Branch      string          `json:"branch"`
+	HeadSHA     string          `json:"head_sha"`
+	Commits     []CommitSummary `json:"commits"`
+	PlanSummary string          `json:"plan_summary"`
+	Notes       string          `json:"notes"`
 }
 
 type Deadline struct {

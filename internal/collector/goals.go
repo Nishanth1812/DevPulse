@@ -42,27 +42,36 @@ func splitSections(content string) map[string]string {
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
-		heading := strings.TrimSpace(line)
+		trimmed := strings.TrimSpace(line)
+
+		// Only real markdown headings (lines starting with #) switch sections;
+		// a bare "Now" inside body text must not silently change the section.
+		if !strings.HasPrefix(trimmed, "#") {
+			if current != "" {
+				result[current] += line + "\n"
+			}
+			continue
+		}
+
+		heading := strings.TrimPrefix(trimmed, "### ")
 		heading = strings.TrimPrefix(heading, "## ")
 		heading = strings.TrimPrefix(heading, "# ")
 
 		switch heading {
 		case "Now":
 			current = "Now"
-			continue
 		case "Next":
 			current = "Next"
-			continue
 		case "Deadlines":
 			current = "Deadlines"
-			continue
 		case "Someday":
 			current = "Someday"
-			continue
-		}
-
-		if current != "" {
-			result[current] += line + "\n"
+		default:
+			// Unknown heading: treat the heading itself as content of the
+			// current section rather than dropping it.
+			if current != "" {
+				result[current] += line + "\n"
+			}
 		}
 	}
 
@@ -75,8 +84,16 @@ func parseDeadlines(content string) []models.Deadline {
 	var deadlines []models.Deadline
 
 	for _, line := range lines {
+		// Accept both the em-dash separator from the template and a plain
+		// hyphen or colon for hand-written files.
+		line = strings.TrimSpace(line)
 		parts := strings.SplitN(line, "—", 2)
-
+		if len(parts) != 2 {
+			parts = strings.SplitN(line, " - ", 2)
+		}
+		if len(parts) != 2 {
+			parts = strings.SplitN(line, ": ", 2)
+		}
 		if len(parts) != 2 {
 			continue
 		}

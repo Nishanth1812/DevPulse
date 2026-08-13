@@ -98,7 +98,7 @@ func (c *groqClient) Generate(ctx context.Context, prompt string) (string, error
 			return "", fmt.Errorf("groq: response contained no choices")
 		}
 
-		logger.LogAPICall("groq", 0, c.model, result.Usage.TotalTokens, time.Since(start))
+		logger.LogAPICall("groq", c.model, result.Usage.TotalTokens, time.Since(start))
 
 		return strings.TrimSpace(result.Choices[0].Message.Content), nil
 	}
