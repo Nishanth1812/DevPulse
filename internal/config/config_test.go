@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	git "github.com/go-git/go-git/v5"
@@ -17,6 +18,7 @@ func setConfigEnv(t *testing.T, path string) {
 func TestWorkspaceBaseDirDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	base, err := WorkspaceBaseDir()
 	if err != nil {
 		t.Fatalf("WorkspaceBaseDir: %v", err)
@@ -122,13 +124,17 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("temporary file left behind after save: %v", err)
 	}
 
-	// Config must have restrictive permissions.
-	info, err := os.Stat(m.ConfigPath())
-	if err != nil {
-		t.Fatalf("stat config: %v", err)
-	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("config permissions = %o, want 600", perm)
+	// Config must have restrictive permissions. Windows has no POSIX
+	// permission bits (Go reports 0666 and Chmod is a no-op for them), so only
+	// enforce this on POSIX platforms.
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(m.ConfigPath())
+		if err != nil {
+			t.Fatalf("stat config: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Fatalf("config permissions = %o, want 600", perm)
+		}
 	}
 
 	// The saved file must still parse.
