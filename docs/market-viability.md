@@ -1,7 +1,7 @@
 # DevPulse Market Viability Report
 
-**Assessment date:** 2026-08-14  
-**Initial segment:** Solo developers managing multiple active repositories  
+**Assessment date:** 2026-08-14
+**Initial segment:** Solo developers managing multiple active repositories
 **Business model assumption:** Open-source adoption first; no paid service required for v1
 
 ## Executive conclusion

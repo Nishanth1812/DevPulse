@@ -1,8 +1,8 @@
 # DevPulse v1.0.0 Roadmap
 
-**Target horizon:** 8–12 weeks  
-**Release baseline:** reconcile `mvp` with `main` / `v0.2.0` before stabilization  
-**Primary user:** solo developer with multiple repositories  
+**Target horizon:** 8–12 weeks
+**Release baseline:** reconcile `mvp` with `main` / `v0.2.0` before stabilization
+**Primary user:** solo developer with multiple repositories
 **Release model:** open-source, local-first, provider-agnostic
 
 ## v1 definition

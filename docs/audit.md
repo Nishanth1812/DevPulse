@@ -1,7 +1,7 @@
 # DevPulse Full Audit
 
-**Audit date:** 2026-08-14  
-**Audited checkout:** `mvp` at `65979368720cf1f7ad845d3d4c46b69f8fb7790c`  
+**Audit date:** 2026-08-14
+**Audited checkout:** `mvp` at `65979368720cf1f7ad845d3d4c46b69f8fb7790c`
 **Release-line comparison:** `main` / `v0.2.0` at `f63a56e59b1f7c27927f822b81770a5b9dd8ea0b`
 
 ## Executive verdict
