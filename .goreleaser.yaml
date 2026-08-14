@@ -32,7 +32,7 @@ universal_binaries:
   - replace: true
 
 archives:
-  - formats: [tar.gz]
+  - format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -42,7 +42,7 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        formats: [zip]
+        format: zip
     files:
       - LICENSE*
       - README.md
@@ -54,7 +54,7 @@ checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  version_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
