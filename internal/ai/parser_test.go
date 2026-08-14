@@ -31,6 +31,28 @@ func TestParseBriefResponseMissingSummary(t *testing.T) {
 	}
 }
 
+func TestParsePortfolioBriefResponse(t *testing.T) {
+	raw := `{"repos":[{"repo_name":"one","summary":"Good","key_changes":[],"current_focus":"x","blockers":[],"next_steps":[]},{"repo_name":"two","summary":"Needs work","key_changes":[],"current_focus":"y","blockers":[],"next_steps":[]}]}`
+	r, err := ParsePortfolioBriefResponse(raw, []string{"one", "two"})
+	if err != nil {
+		t.Fatalf("ParsePortfolioBriefResponse: %v", err)
+	}
+	if len(r.Repos) != 2 || r.Repos[0].RepoName != "one" {
+		t.Fatalf("parsed %+v", r)
+	}
+}
+
+func TestParsePortfolioBriefResponseRejectsUnknownOrMissingRepo(t *testing.T) {
+	unknown := `{"repos":[{"repo_name":"other","summary":"x"}]}`
+	if _, err := ParsePortfolioBriefResponse(unknown, []string{"one"}); err == nil {
+		t.Fatal("expected unknown repository error")
+	}
+	missing := `{"repos":[{"repo_name":"one","summary":"x"}]}`
+	if _, err := ParsePortfolioBriefResponse(missing, []string{"one", "two"}); err == nil {
+		t.Fatal("expected missing repository error")
+	}
+}
+
 func TestParseBriefResponseInvalidJSON(t *testing.T) {
 	if _, err := ParseBriefResponse("not json"); err == nil {
 		t.Fatal("expected error for invalid JSON")

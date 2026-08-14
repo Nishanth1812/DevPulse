@@ -14,6 +14,23 @@ type BriefResponse struct {
 	NextSteps []string `json:"next_steps"`
 }
 
+// PortfolioBriefItem is the structured output for one repository in the
+// cross-repository brief command.
+type PortfolioBriefItem struct {
+	RepoName     string   `json:"repo_name"`
+	Summary      string   `json:"summary"`
+	KeyChanges   []string `json:"key_changes"`
+	CurrentFocus string   `json:"current_focus"`
+	Blockers     []string `json:"blockers"`
+	NextSteps    []string `json:"next_steps"`
+}
+
+// PortfolioBriefResponse is the structured output for a cross-repository
+// brief. Every collected repository must appear exactly once.
+type PortfolioBriefResponse struct {
+	Repos []PortfolioBriefItem `json:"repos"`
+}
+
 // CommitResponse is the structured output produced by the AI for the commit command.
 type CommitResponse struct {
 	// Subject is the first line of the commit message (<=72 chars, imperative mood).

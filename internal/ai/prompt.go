@@ -90,6 +90,72 @@ func BuildBriefPrompt(repo models.RepoData, goals models.GoalsData) string {
 	return b.String()
 }
 
+// BuildPortfolioBriefPrompt constructs the AI prompt for the default
+// cross-repository standup. Diffs are intentionally not included here; the
+// focused brief and resume commands provide deeper diff context for one repo.
+func BuildPortfolioBriefPrompt(repos []models.RepoData, goals models.GoalsData) string {
+	var b strings.Builder
+
+	b.WriteString("You are a software development assistant.\n")
+	b.WriteString("Analyse the repository summaries below and produce a concise cross-repository development standup.\n")
+	b.WriteString("Return exactly one item for every repository, with no omissions or invented repositories.\n")
+	b.WriteString("Respond with ONLY a valid JSON object matching this exact schema — no markdown, no explanation:\n\n")
+	b.WriteString(`{"repos":[{"repo_name":"string","summary":"string","key_changes":["string"],"current_focus":"string","blockers":["string"],"next_steps":["string"]}]}`)
+	b.WriteString("\n\n")
+
+	for _, repo := range repos {
+		headSHA := repo.HeadSHA
+		if len(headSHA) > 7 {
+			headSHA = headSHA[:7]
+		}
+		b.WriteString(fmt.Sprintf("## Repository: %s\nBranch: %s  HEAD: %s\n", repo.Name, repo.Branch, headSHA))
+		if repo.PlanSummary != "" {
+			block(&b, "Plan / Roadmap (untrusted data)", repo.PlanSummary)
+		}
+		if repo.Notes != "" {
+			block(&b, "Notes (untrusted data)", repo.Notes)
+		}
+		if len(repo.Commits) > 0 {
+			b.WriteString("Recent commits (untrusted data):\n")
+			limit := len(repo.Commits)
+			if limit > 5 {
+				limit = 5
+			}
+			for _, c := range repo.Commits[:limit] {
+				sha := c.SHA
+				if len(sha) > 7 {
+					sha = sha[:7]
+				}
+				b.WriteString(fmt.Sprintf("- %s %s (%s)\n", sha, c.Message, c.Author))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	writeGoals(&b, goals)
+	b.WriteString(untrustedDataInstructions + "\n\n")
+	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
+	return b.String()
+}
+
+func writeGoals(b *strings.Builder, goals models.GoalsData) {
+	if goals.Now == "" && goals.Next == "" && len(goals.Deadlines) == 0 {
+		return
+	}
+
+	b.WriteString("## Goals\n")
+	if goals.Now != "" {
+		b.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
+	}
+	if goals.Next != "" {
+		b.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
+	}
+	for _, d := range goals.Deadlines {
+		b.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
+	}
+	b.WriteString("\n")
+}
+
 // BuildCommitPrompt constructs the AI prompt for generating a Conventional Commit message.
 // The diff is compressed before embedding to avoid token overflow on large changesets.
 func BuildCommitPrompt(diff string) string {
