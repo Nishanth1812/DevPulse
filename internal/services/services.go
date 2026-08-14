@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -49,8 +50,6 @@ func (s *NoteService) Add(
 		return err
 	}
 
-	defer file.Close()
-
 	entry := fmt.Sprintf(
 		"<!-- %s --> %s\n",
 		time.Now().Format("2006-01-02 15:04"),
@@ -58,8 +57,13 @@ func (s *NoteService) Add(
 	)
 
 	_, err = file.WriteString(entry)
-
-	return err
+	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	// Close explicitly so a buffered write failure is surfaced instead of
+	// silently dropping the note.
+	return file.Close()
 }
 
 func (s *NoteService) List(repo string) (string, error) {
@@ -68,5 +72,10 @@ func (s *NoteService) List(repo string) (string, error) {
 		return "", err
 	}
 
-	return utils.ReadFile(utils.NotesPath(safeRepo))
+	path := utils.NotesPath(safeRepo)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+
+	return utils.ReadFile(path)
 }

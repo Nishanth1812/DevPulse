@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Nishanth1812/devpulse/internal/collector"
 	"github.com/Nishanth1812/devpulse/internal/config"
 	"github.com/Nishanth1812/devpulse/internal/security"
 	"github.com/Nishanth1812/devpulse/internal/utils"
@@ -170,12 +171,10 @@ func colored(code, text string) string {
 }
 
 // countPlanFiles returns the number of known plan files found in a repo.
+// The file list comes from the collector so doctor and collection always agree.
 func countPlanFiles(repoPath string) int {
 	count := 0
-	for _, name := range []string{
-		"PLAN.md", "ROADMAP.md", "TODO.md", "CHANGELOG.md", "NOTES.md",
-		"docs/PLAN.md", "docs/ROADMAP.md",
-	} {
+	for _, name := range collector.PlanFiles() {
 		if utils.FileExists(filepath.Join(repoPath, name)) {
 			count++
 		}

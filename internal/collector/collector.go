@@ -20,6 +20,12 @@ var planFiles = []string{
 	"docs/ROADMAP.md",
 }
 
+// PlanFiles returns the list of plan file names scanned for each repo. It is
+// the single source of truth for plan-file discovery.
+func PlanFiles() []string {
+	return planFiles
+}
+
 func CollectRepo(
 	path string,
 	opts models.CollectOptions,

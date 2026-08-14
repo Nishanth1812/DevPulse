@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,8 +69,12 @@ func GoalsPath() string {
 	return filepath.Join(WorkspaceBaseDir(), "goals.md")
 }
 
+// DaysUntil returns the number of days until t, rounded half away from zero so
+// a deadline a few hours from now reads 0, one a day out reads 1, and a
+// deadline that passed reads negative — past and future are never conflated by
+// naive truncation.
 func DaysUntil(t time.Time) int {
-	return int(time.Until(t).Hours() / 24)
+	return int(math.Round(time.Until(t).Hours() / 24))
 }
 
 // SanitizeRepoName validates that a name is safe to use as a single filename

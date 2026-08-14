@@ -111,7 +111,7 @@ func CollectCommits(
 // Commits are ordered oldest-first to support the "why" narrative.
 // Only the newest fullDiffCommits commits keep their diffs; older ones are
 // reduced to messages to bound prompt size (0 = keep all diffs).
-func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits int) ([]models.CommitSummary, error) {
+func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits int, includeDiff bool) ([]models.CommitSummary, error) {
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits i
 
 		// Get the diff for this file (only for the newest fullDiffCommits commits)
 		var diffText string
-		if fullDiffCommits == 0 || matched < fullDiffCommits {
+		if includeDiff && (fullDiffCommits == 0 || matched < fullDiffCommits) {
 			parent, err := commit.Parent(0)
 			if err == nil {
 				patch, err := parent.Patch(commit)

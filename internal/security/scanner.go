@@ -28,7 +28,7 @@ func init() {
 	patterns = []pattern{
 		{
 			name:    "pem-private-key",
-			regex:   regexp.MustCompile(`-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----.+?-----END\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----`),
+			regex:   regexp.MustCompile(`-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----[\s\S]+?-----END\s+(?:RSA|DSA|EC|OPENSSH|PGP)\s+PRIVATE\s+KEY-----`),
 			replace: "[REDACTED PEM PRIVATE KEY]",
 		},
 		{

@@ -192,10 +192,12 @@ func BuildFocusPrompt(repos []models.RepoData, goals models.GoalsData) string {
 		b.WriteString(fmt.Sprintf("## %s (branch: %s, HEAD: %s)\n", repo.Name, repo.Branch, headSHA))
 
 		if repo.PlanSummary != "" {
-			// Truncate plan summary to keep prompt manageable
+			// Truncate plan summary to keep prompt manageable (rune-safe so
+			// multi-byte characters are never split).
 			plan := strings.TrimSpace(repo.PlanSummary)
-			if len(plan) > 300 {
-				plan = plan[:300] + "..."
+			runes := []rune(plan)
+			if len(runes) > 300 {
+				plan = string(runes[:300]) + "..."
 			}
 			block(&b, "Plan (untrusted data)", plan)
 		}

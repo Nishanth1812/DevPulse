@@ -98,10 +98,12 @@ func CompressPlan(content string) string {
 }
 
 // CompressNotes caps notes content so an unbounded notes file cannot bloat a prompt.
+// Notes are appended chronologically, so the newest entries are at the end; keep
+// the tail rather than the stale head.
 func CompressNotes(content string) string {
 	lines := strings.Split(content, "\n")
 	if len(lines) > maxNoteLines {
-		lines = lines[:maxNoteLines]
+		lines = lines[len(lines)-maxNoteLines:]
 	}
 	for i, line := range lines {
 		lines[i] = truncateLine(line, maxDiffLineLen)

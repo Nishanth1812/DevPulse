@@ -36,6 +36,13 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Commands that don't touch the workspace should not create config
+		// dirs as a side effect on a machine that has never run DevPulse.
+		switch cmd.Name() {
+		case "version", "help", "completion":
+			return nil
+		}
+
 		loaded, err := config.Load()
 		if err != nil {
 			return err
