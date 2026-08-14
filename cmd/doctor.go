@@ -152,7 +152,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 
 	if failCount > 0 {
 		_, err := fmt.Fprintf(w, "%d issue(s) found: %d pass, %d warn, %d fail\n", failCount+warnCount, passCount, warnCount, failCount)
-		return err
+		if err != nil {
+			return err
+		}
+		return doctorFailureError(failCount)
 	}
 	if warnCount > 0 {
 		_, err := fmt.Fprintf(w, "%d warning(s): %d pass, %d warn\n", warnCount, passCount, warnCount)
@@ -160,6 +163,13 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	_, err := fmt.Fprintf(w, "All checks passed (%d)\n", passCount)
 	return err
+}
+
+func doctorFailureError(failCount int) error {
+	if failCount <= 0 {
+		return nil
+	}
+	return fmt.Errorf("doctor found %d failed check(s)", failCount)
 }
 
 // colored wraps text in an ANSI color code unless color output is disabled.
