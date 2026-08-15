@@ -59,6 +59,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		Parse: func(raw string) (any, error) {
 			return ai.ParseCommitResponse(raw)
 		},
+		Validate: func(data any, _ models.GoalsData) (any, error) {
+			response, ok := data.(ai.CommitResponse)
+			if !ok {
+				return nil, fmt.Errorf("commit: unexpected response type %T", data)
+			}
+			return response, ai.ValidateCommitResponse(response)
+		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			return fmt.Sprintf("Estimated tokens: ~%d", ai.EstimateTokens(prompt))
 		},

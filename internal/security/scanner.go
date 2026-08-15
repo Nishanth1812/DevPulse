@@ -47,6 +47,11 @@ func init() {
 			replace: "[REDACTED AWS KEY]",
 		},
 		{
+			name:    "aws-secret-key",
+			regex:   regexp.MustCompile(`(?i)AWS_(?:SECRET_ACCESS_KEY|SESSION_TOKEN)\s*[:=]\s*[^\s,}\"']+`),
+			replace: "[REDACTED AWS SECRET]",
+		},
+		{
 			name:    "jwt",
 			regex:   regexp.MustCompile(`eyJ[a-zA-Z0-9_-]{10,}\.(?:[a-zA-Z0-9_-]{10,}\.){1,2}[a-zA-Z0-9_-]{10,}`),
 			replace: "[REDACTED JWT]",
@@ -68,7 +73,7 @@ func init() {
 		},
 		{
 			name:    "generic-api-key-unquoted",
-			regex:   regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password|passwd)\s*[:=]\s*\S+`),
+			regex:   regexp.MustCompile(`(?i)(api[_-]?key|apikey|secret|token|password|passwd)\s*[:=]\s*[^\s,}\"']+`),
 			replace: "[REDACTED CREDENTIAL]",
 		},
 		{

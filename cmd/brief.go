@@ -101,15 +101,17 @@ func runFocusedBrief(cmd *cobra.Command, repoName string, repoData models.RepoDa
 		logger.Log("WARN", "brief", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, fmt.Sprintf("%t", redactDiff))
+	model := resolveModel("brief", false)
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "brief",
 		Provider:    provider,
+		Model:       model,
 		NewClient:   newClientFactory("brief", false),
 		Cache:       briefCache,
 		RepoKey:     repoName,
-		CacheKey:    cacheKey,
+		CacheKey:    "focused:" + repoName,
+		CacheInputs: []any{repoData, briefCacheOptions{RedactDiff: redactDiff, Since: "", MaxCommits: 20, FullDiffCommits: 10, IncludeDiff: !redactDiff}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
 		Out:         cmd.OutOrStdout(),
@@ -119,6 +121,13 @@ func runFocusedBrief(cmd *cobra.Command, repoName string, repoData models.RepoDa
 		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildBriefPrompt(repoData, goals) },
 		Parse: func(raw string) (any, error) {
 			return ai.ParseBriefResponse(raw)
+		},
+		Validate: func(data any, _ models.GoalsData) (any, error) {
+			response, ok := data.(ai.BriefResponse)
+			if !ok {
+				return nil, fmt.Errorf("brief: unexpected response type %T", data)
+			}
+			return response, ai.ValidateBriefResponse(response)
 		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			estTokens := ai.EstimateTokens(prompt)
@@ -149,20 +158,21 @@ func runPortfolioBrief(cmd *cobra.Command) error {
 		logger.Log("WARN", "brief", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-
-	keyParts := []string{fmt.Sprintf("redact=%t", redactDiff)}
+	model := resolveModel("brief", false)
+	allowedRepos := make(map[string]struct{}, len(repoDataList))
 	for _, repo := range repoDataList {
-		keyParts = append(keyParts, repo.Name, repo.HeadSHA)
+		allowedRepos[repo.Name] = struct{}{}
 	}
-	portfolioKey := cache.Hash(keyParts...)
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "brief",
 		Provider:    provider,
+		Model:       model,
 		NewClient:   newClientFactory("brief", false),
 		Cache:       portfolioCache,
-		RepoKey:     portfolioKey,
-		CacheKey:    portfolioKey,
+		RepoKey:     "portfolio",
+		CacheKey:    "portfolio",
+		CacheInputs: []any{repoDataList, briefCacheOptions{RedactDiff: redactDiff, Since: "", MaxCommits: 20, FullDiffCommits: 10, IncludeDiff: !redactDiff}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
 		Out:         cmd.OutOrStdout(),
@@ -172,6 +182,16 @@ func runPortfolioBrief(cmd *cobra.Command) error {
 		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildPortfolioBriefPrompt(repoDataList, goals) },
 		Parse: func(raw string) (any, error) {
 			return ai.ParsePortfolioBriefResponse(raw)
+		},
+		Validate: func(data any, _ models.GoalsData) (any, error) {
+			response, ok := data.(ai.PortfolioBriefResponse)
+			if !ok {
+				return nil, fmt.Errorf("brief: unexpected portfolio response type %T", data)
+			}
+			if err := ai.ValidatePortfolioBriefResponse(response, allowedRepos); err != nil {
+				return nil, err
+			}
+			return orderPortfolioBriefResponse(response, repoDataList)
 		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			estTokens := ai.EstimateTokens(prompt)
@@ -193,6 +213,14 @@ func runPortfolioBrief(cmd *cobra.Command) error {
 	}
 	logger.Log("INFO", "brief", fmt.Sprintf("repos=%d provider=%s", len(repoDataList), provider))
 	return renderPortfolioBrief(cmd.OutOrStdout(), response)
+}
+
+type briefCacheOptions struct {
+	RedactDiff      bool
+	Since           string
+	MaxCommits      int
+	FullDiffCommits int
+	IncludeDiff     bool
 }
 
 func orderPortfolioBriefResponse(response ai.PortfolioBriefResponse, repos []models.RepoData) (ai.PortfolioBriefResponse, error) {

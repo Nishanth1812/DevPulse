@@ -90,15 +90,17 @@ func runResume(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "resume", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, since, fmt.Sprintf("%t", redactDiff))
+	model := resolveModel("resume", true)
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "resume",
 		Provider:    provider,
+		Model:       model,
 		NewClient:   newClientFactory("resume", true),
 		Cache:       resumeCache,
 		RepoKey:     repoName,
-		CacheKey:    cacheKey,
+		CacheKey:    "resume:" + repoName,
+		CacheInputs: []any{repoData, briefCacheOptions{RedactDiff: redactDiff, Since: since, MaxCommits: 50, FullDiffCommits: 15, IncludeDiff: !redactDiff}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
 		Out:         cmd.OutOrStdout(),
@@ -108,6 +110,13 @@ func runResume(cmd *cobra.Command, args []string) error {
 		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildResumePrompt(repoData, goals) },
 		Parse: func(raw string) (any, error) {
 			return ai.ParseResumeResponse(raw)
+		},
+		Validate: func(data any, _ models.GoalsData) (any, error) {
+			response, ok := data.(ai.ResumeResponse)
+			if !ok {
+				return nil, fmt.Errorf("resume: unexpected response type %T", data)
+			}
+			return response, ai.ValidateResumeResponse(response)
 		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			estTokens := ai.EstimateTokens(prompt)

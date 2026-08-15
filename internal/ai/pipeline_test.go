@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -118,7 +121,10 @@ func TestRunParseFailureInvalidatesCache(t *testing.T) {
 	// Poison the cached entry by replacing it with a JSON blob that parses as
 	// JSON but fails the schema parse (missing required summary field).
 	c := mustCache(t, dir)
-	poisonedKey := cache.Hash(opts.CacheKey, encodeGoals(models.GoalsData{}))
+	poisonedKey, err := cache.Fingerprint(opts.Command, opts.Provider, opts.Model, opts.CacheKey, opts.CacheInputs, models.GoalsData{})
+	if err != nil {
+		t.Fatalf("fingerprint poison key: %v", err)
+	}
 	if err := c.PutRaw("repo", poisonedKey, "groq", "brief", json.RawMessage(`{"summary":""}`)); err != nil {
 		t.Fatalf("poison cache: %v", err)
 	}
@@ -187,6 +193,51 @@ func TestRunSensitiveContentRedacted(t *testing.T) {
 	}
 	if strings.Contains(got, "ghp_") {
 		t.Fatalf("prompt sent to client still contains the secret")
+	}
+}
+
+func TestRunRedactsProviderResponseBeforeCaching(t *testing.T) {
+	dir := t.TempDir()
+	secret := "super-secret-value"
+	f := &fakeClient{response: `{"summary":"token: ` + secret + `","key_changes":[],"current_focus":"","blockers":[],"next_steps":[]}`}
+	opts := runOpts(t, f, dir)
+	data, err := Run(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if strings.Contains(data.(BriefResponse).Summary, secret) {
+		t.Fatal("provider secret survived response redaction")
+	}
+	entries, err := os.ReadDir(filepath.Join(dir))
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	for _, entry := range entries {
+		contents, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			t.Fatalf("ReadFile cache entry: %v", err)
+		}
+		if strings.Contains(string(contents), secret) {
+			t.Fatalf("provider secret was cached in %s", entry.Name())
+		}
+	}
+}
+
+func TestRunValidationFailureIsNotCached(t *testing.T) {
+	dir := t.TempDir()
+	f := &fakeClient{response: briefJSON()}
+	opts := runOpts(t, f, dir)
+	opts.Validate = func(any, models.GoalsData) (any, error) {
+		return nil, errors.New("invalid response")
+	}
+	if _, err := Run(context.Background(), opts); err == nil {
+		t.Fatal("expected validation failure")
+	}
+	if _, err := Run(context.Background(), opts); err == nil {
+		t.Fatal("expected validation failure on second run")
+	}
+	if f.calls != 2 {
+		t.Fatalf("validation failure was cached; client calls = %d, want 2", f.calls)
 	}
 }
 

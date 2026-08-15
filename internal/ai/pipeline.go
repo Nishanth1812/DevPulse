@@ -37,6 +37,12 @@ type RunOptions struct {
 	// RepoKey and CacheKey are the cache lookup components.
 	RepoKey  string
 	CacheKey string
+	// CacheInputs contains the complete structured prompt inputs and command
+	// options. It is fingerprinted together with the command/provider/model and
+	// goals before a cache lookup.
+	CacheInputs []any
+	// Model is the resolved model identity used for this request.
+	Model string
 	// CacheMaxAge bounds how long a cached entry is valid.
 	CacheMaxAge time.Duration
 	// MaxPromptTokens caps the estimated prompt size before the API call.
@@ -56,6 +62,9 @@ type RunOptions struct {
 	BuildPrompt func(goals models.GoalsData) string
 	// Parse converts the raw AI response into the typed result.
 	Parse func(raw string) (any, error)
+	// Validate runs after parsing and before rendering or caching. It may return
+	// a normalized value, such as focus urgency derived from parsed goals.
+	Validate func(data any, goals models.GoalsData) (any, error)
 	// DryRunInfo returns extra lines for the dry-run header (e.g. token breakdown).
 	DryRunInfo func(prompt string, goals models.GoalsData) string
 }
@@ -70,11 +79,32 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 	goals := opts.LoadGoals()
 
 	cacheKey := opts.CacheKey
+	parseAndValidate := func(raw string) (any, error) {
+		data, err := opts.Parse(raw)
+		if err != nil {
+			return nil, err
+		}
+		if opts.Validate != nil {
+			return opts.Validate(data, goals)
+		}
+		return data, nil
+	}
 	if !opts.DryRun && opts.Cache != nil {
-		cacheKey = cache.Hash(opts.CacheKey, encodeGoals(goals))
+		fingerprint, err := cache.Fingerprint(
+			opts.Command,
+			opts.Provider,
+			opts.Model,
+			opts.CacheKey,
+			opts.CacheInputs,
+			goals,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: build cache fingerprint: %w", opts.Command, err)
+		}
+		cacheKey = fingerprint
 		if raw, ok := opts.Cache.GetRaw(opts.RepoKey, cacheKey, opts.Provider, opts.Command, opts.CacheMaxAge); ok {
 			logger.LogCacheEvent(opts.Command, opts.RepoKey, "hit")
-			if data, err := opts.Parse(string(raw)); err == nil {
+			if data, err := parseAndValidate(string(raw)); err == nil {
 				return data, nil
 			}
 			// The cached entry is stale (unparseable). Drop it so the next run
@@ -136,7 +166,7 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 		raw = responseScan.RedactedPrompt
 	}
 
-	data, err := opts.Parse(raw)
+	data, err := parseAndValidate(raw)
 	if err != nil {
 		logger.LogError(opts.Command, err)
 		return nil, err

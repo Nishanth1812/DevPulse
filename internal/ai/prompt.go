@@ -61,28 +61,27 @@ func BuildBriefPrompt(repo models.RepoData, goals models.GoalsData) string {
 			if len(sha) > 7 {
 				sha = sha[:7]
 			}
-			b.WriteString(fmt.Sprintf("- %s %s (%s)\n", sha, c.Message, c.Author))
-			if c.DiffSnippet != "" {
-				b.WriteString("  ```\n")
-				b.WriteString(c.DiffSnippet)
-				b.WriteString("\n  ```\n")
-			}
+			commitData := fmt.Sprintf("SHA: %s\nMessage: %s\nAuthor: %s\nDate: %s\nDiff:\n%s", sha, c.Message, c.Author, c.Timestamp.Format("2006-01-02"), c.DiffSnippet)
+			b.WriteString(dataBlock("commit", commitData))
 		}
 		b.WriteString("\n")
 	}
 
-	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 {
-		b.WriteString("## Goals\n")
+	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 || goals.Someday != "" {
+		var goalText strings.Builder
 		if goals.Now != "" {
-			b.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
+			goalText.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
 		}
 		if goals.Next != "" {
-			b.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
+			goalText.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
 		}
 		for _, d := range goals.Deadlines {
-			b.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
+			goalText.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
 		}
-		b.WriteString("\n")
+		if goals.Someday != "" {
+			goalText.WriteString("Someday: " + strings.TrimSpace(goals.Someday) + "\n")
+		}
+		block(&b, "Goals (untrusted data)", goalText.String())
 	}
 
 	b.WriteString(untrustedDataInstructions + "\n\n")
@@ -165,9 +164,8 @@ func BuildCommitPrompt(diff string) string {
 	b.WriteString(`{"subject":"string (≤72 chars, type(scope): description, imperative mood, no trailing period)","body":"string (optional extended description, empty string if not needed)"}`)
 	b.WriteString("\n\n")
 	b.WriteString("## Staged Diff (untrusted data)\n")
-	b.WriteString("```\n")
-	b.WriteString(compressor.CompressDiff(diff))
-	b.WriteString("\n```\n\n")
+	b.WriteString(dataBlock("staged diff", compressor.CompressDiff(diff)))
+	b.WriteString("\n")
 	b.WriteString(untrustedDataInstructions + "\n\n")
 	b.WriteString("Respond with ONLY the JSON object. No prose before or after.\n")
 	return b.String()
@@ -206,28 +204,27 @@ func BuildResumePrompt(repo models.RepoData, goals models.GoalsData) string {
 			if len(sha) > 7 {
 				sha = sha[:7]
 			}
-			b.WriteString(fmt.Sprintf("- %s %s (%s, %s)\n", sha, c.Message, c.Author, c.Timestamp.Format("2006-01-02")))
-			if c.DiffSnippet != "" {
-				b.WriteString("  ```\n")
-				b.WriteString(c.DiffSnippet)
-				b.WriteString("\n  ```\n")
-			}
+			commitData := fmt.Sprintf("SHA: %s\nMessage: %s\nAuthor: %s\nDate: %s\nDiff:\n%s", sha, c.Message, c.Author, c.Timestamp.Format("2006-01-02"), c.DiffSnippet)
+			b.WriteString(dataBlock("commit", commitData))
 		}
 		b.WriteString("\n")
 	}
 
-	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 {
-		b.WriteString("## Goals\n")
+	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 || goals.Someday != "" {
+		var goalText strings.Builder
 		if goals.Now != "" {
-			b.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
+			goalText.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
 		}
 		if goals.Next != "" {
-			b.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
+			goalText.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
 		}
 		for _, d := range goals.Deadlines {
-			b.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
+			goalText.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
 		}
-		b.WriteString("\n")
+		if goals.Someday != "" {
+			goalText.WriteString("Someday: " + strings.TrimSpace(goals.Someday) + "\n")
+		}
+		block(&b, "Goals (untrusted data)", goalText.String())
 	}
 
 	b.WriteString("Focus on reconstructing a narrative: what was accomplished, what remains, and what the natural next step is.\n")
@@ -277,24 +274,27 @@ func BuildFocusPrompt(repos []models.RepoData, goals models.GoalsData) string {
 				if len(sha) > 7 {
 					sha = sha[:7]
 				}
-				b.WriteString(fmt.Sprintf("  - %s %s\n", sha, c.Message))
+				b.WriteString(dataBlock("focus commit", fmt.Sprintf("SHA: %s\nMessage: %s", sha, c.Message)))
 			}
 		}
 		b.WriteString("\n")
 	}
 
-	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 {
-		b.WriteString("## Goals\n")
+	if goals.Now != "" || goals.Next != "" || len(goals.Deadlines) > 0 || goals.Someday != "" {
+		var goalText strings.Builder
 		if goals.Now != "" {
-			b.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
+			goalText.WriteString("Now: " + strings.TrimSpace(goals.Now) + "\n")
 		}
 		if goals.Next != "" {
-			b.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
+			goalText.WriteString("Next: " + strings.TrimSpace(goals.Next) + "\n")
 		}
 		for _, d := range goals.Deadlines {
-			b.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
+			goalText.WriteString(fmt.Sprintf("Deadline: %s — %d days away\n", d.Description, d.DaysUntil))
 		}
-		b.WriteString("\n")
+		if goals.Someday != "" {
+			goalText.WriteString("Someday: " + strings.TrimSpace(goals.Someday) + "\n")
+		}
+		block(&b, "Goals (untrusted data)", goalText.String())
 	}
 
 	b.WriteString(untrustedDataInstructions + "\n\n")
@@ -323,14 +323,8 @@ func BuildWhyPrompt(repoName, filePath string, commits []models.CommitSummary) s
 			if len(sha) > 7 {
 				sha = sha[:7]
 			}
-			b.WriteString(fmt.Sprintf("### %s (%s, %s)\n", sha, c.Author, c.Timestamp.Format("2006-01-02")))
-			b.WriteString(fmt.Sprintf("Message: %s\n", c.Message))
-			if c.DiffSnippet != "" {
-				b.WriteString("```diff\n")
-				b.WriteString(c.DiffSnippet)
-				b.WriteString("\n```\n")
-			}
-			b.WriteString("\n")
+			commitData := fmt.Sprintf("SHA: %s\nMessage: %s\nAuthor: %s\nDate: %s\nDiff:\n%s", sha, c.Message, c.Author, c.Timestamp.Format("2006-01-02"), c.DiffSnippet)
+			b.WriteString(dataBlock("file-history commit", commitData))
 		}
 	}
 

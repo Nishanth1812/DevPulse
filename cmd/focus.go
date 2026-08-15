@@ -68,22 +68,24 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "focus", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-
-	// Cache key is a hash of every repo's HEAD so the focus ranking invalidates
-	// when any registered repo moves.
-	var keyParts []string
-	for _, rd := range repoDataList {
-		keyParts = append(keyParts, rd.Name, rd.HeadSHA)
+	model := resolveModel("focus", false)
+	allowedRepos := make(map[string]struct{}, len(repoDataList))
+	for _, repo := range repoDataList {
+		allowedRepos[repo.Name] = struct{}{}
 	}
-	focusKey := cache.Hash(keyParts...)
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
-		Command:     "focus",
-		Provider:    provider,
-		NewClient:   newClientFactory("focus", false),
-		Cache:       focusCache,
-		RepoKey:     focusKey,
-		CacheKey:    focusKey,
+		Command:   "focus",
+		Provider:  provider,
+		Model:     model,
+		NewClient: newClientFactory("focus", false),
+		Cache:     focusCache,
+		RepoKey:   "focus",
+		CacheKey:  "focus",
+		CacheInputs: []any{repoDataList, struct {
+			RedactDiff bool
+			MaxCommits int
+		}{redactDiff, 10}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
 		Out:         cmd.OutOrStdout(),
@@ -93,6 +95,17 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildFocusPrompt(repoDataList, goals) },
 		Parse: func(raw string) (any, error) {
 			return ai.ParseFocusResponse(raw)
+		},
+		Validate: func(data any, goals models.GoalsData) (any, error) {
+			response, ok := data.(ai.FocusResponse)
+			if !ok {
+				return nil, fmt.Errorf("focus: unexpected response type %T", data)
+			}
+			if err := ai.ValidateFocusResponse(response, allowedRepos); err != nil {
+				return nil, err
+			}
+			response.Ranked = ai.ApplyDeadlineUrgency(response.Ranked, goals, 14)
+			return response, nil
 		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			estTokens := ai.EstimateTokens(prompt)

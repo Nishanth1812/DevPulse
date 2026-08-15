@@ -18,6 +18,14 @@ type checkResult struct {
 	message string
 }
 
+type doctorFailure struct {
+	FailCount int
+}
+
+func (e doctorFailure) Error() string {
+	return fmt.Sprintf("doctor: %d check(s) failed", e.FailCount)
+}
+
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Run DevPulse diagnostics",
@@ -151,8 +159,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 
 	if failCount > 0 {
-		_, err := fmt.Fprintf(w, "%d issue(s) found: %d pass, %d warn, %d fail\n", failCount+warnCount, passCount, warnCount, failCount)
-		return err
+		if _, err := fmt.Fprintf(w, "%d issue(s) found: %d pass, %d warn, %d fail\n", failCount+warnCount, passCount, warnCount, failCount); err != nil {
+			return err
+		}
+		return doctorFailure{FailCount: failCount}
 	}
 	if warnCount > 0 {
 		_, err := fmt.Fprintf(w, "%d warning(s): %d pass, %d warn\n", warnCount, passCount, warnCount)

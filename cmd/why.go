@@ -88,6 +88,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "why", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
+	model := resolveModel("why", false)
 
 	// Cache key includes the file path, the newest commit touching it, and the
 	// redact-diff setting so the archaeology invalidates when the file changes
@@ -96,15 +97,15 @@ func runWhy(cmd *cobra.Command, args []string) error {
 	if len(commits) > 0 {
 		newestSHA = commits[len(commits)-1].SHA
 	}
-	cacheKey := cache.Hash(repoName, filePath, newestSHA, fmt.Sprintf("%t", redactDiff))
-
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "why",
 		Provider:    provider,
+		Model:       model,
 		NewClient:   newClientFactory("why", false),
 		Cache:       whyCache,
-		RepoKey:     cacheKey,
-		CacheKey:    cacheKey,
+		RepoKey:     "why:" + repoName,
+		CacheKey:    "why:" + repoName + ":" + filePath,
+		CacheInputs: []any{repoName, filePath, commits, struct{ RedactDiff bool }{redactDiff}, newestSHA},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
 		Out:         cmd.OutOrStdout(),
@@ -114,6 +115,13 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		BuildPrompt: func(goals models.GoalsData) string { return ai.BuildWhyPrompt(repoName, filePath, commits) },
 		Parse: func(raw string) (any, error) {
 			return ai.ParseWhyResponse(raw)
+		},
+		Validate: func(data any, _ models.GoalsData) (any, error) {
+			response, ok := data.(ai.WhyResponse)
+			if !ok {
+				return nil, fmt.Errorf("why: unexpected response type %T", data)
+			}
+			return response, ai.ValidateWhyResponse(response)
 		},
 		DryRunInfo: func(prompt string, goals models.GoalsData) string {
 			estTokens := ai.EstimateTokens(prompt)

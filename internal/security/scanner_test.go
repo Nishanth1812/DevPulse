@@ -158,3 +158,26 @@ func TestScanPrompt_ShannonEntropy(t *testing.T) {
 		}
 	}
 }
+
+func TestScanPrompt_CredentialFragments(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "dotenv api key", input: "OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456"},
+		{name: "aws secret", input: "AWS_SECRET_ACCESS_KEY=very-secret-value"},
+		{name: "gcp private key", input: "private_key: '-----BEGIN RSA PRIVATE KEY-----\\nsecret\\n-----END RSA PRIVATE KEY-----'"},
+		{name: "jwt", input: "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturevalue"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ScanPrompt(tc.input)
+			if !result.ContainsSecrets {
+				t.Fatalf("expected secret detection for %q", tc.input)
+			}
+			if strings.Contains(result.RedactedPrompt, tc.input) {
+				t.Fatalf("original credential fragment survived redaction: %q", result.RedactedPrompt)
+			}
+		})
+	}
+}
