@@ -120,7 +120,7 @@ func (c *Cache) GetRaw(repo, headSHA, provider, command string, maxAge time.Dura
 	if err := json.Unmarshal(data, &e); err != nil {
 		return nil, false
 	}
-	if time.Since(e.StoredAt) > maxAge {
+	if maxAge <= 0 || time.Since(e.StoredAt) > maxAge {
 		return nil, false
 	}
 
