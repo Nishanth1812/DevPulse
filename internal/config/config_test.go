@@ -100,6 +100,33 @@ func TestRegisterRepositoryRejectsMissingPath(t *testing.T) {
 	}
 }
 
+func TestRegisterRepositoryStoresCleanAbsolutePath(t *testing.T) {
+	useTempConfig(t)
+	m, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	parent := t.TempDir()
+	repoDir := filepath.Join(parent, "repo")
+	if err := os.MkdirAll(repoDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if _, err := git.PlainInit(repoDir, false); err != nil {
+		t.Fatalf("PlainInit: %v", err)
+	}
+
+	input := filepath.Join(parent, "nested", "..", "repo")
+	registered, err := m.RegisterRepository(input)
+	if err != nil {
+		t.Fatalf("RegisterRepository: %v", err)
+	}
+	want := filepath.Clean(repoDir)
+	if registered.Path != want {
+		t.Fatalf("registered path = %q, want %q", registered.Path, want)
+	}
+}
+
 func TestSaveConfigRoundTrip(t *testing.T) {
 	useTempConfig(t)
 	m, err := Load()
