@@ -24,7 +24,7 @@
 
 ## Current baseline and dependency order
 
-**Implementation status (2026-08-15):** R3 (`v0.5.0`) and R4 (`v0.6.0`) are implemented and locally verified on `mvp`. R5 (`v0.7.0`) implementation is complete; its remote Linux/Windows CI gate is the remaining verification checkpoint before marking the release-candidate gate approved. R6 remains out of scope for this push.
+**Implementation status (2026-08-15):** R3 (`v0.5.0`), R4 (`v0.6.0`), and R5 (`v0.7.0`) are implemented and verified on `mvp`. Final remote run `31890640015` passed the Linux and Windows gates, including Linux race testing. R6 remains out of scope for this push.
 
 The v0.3.0 release baseline is tag `v0.3.0` on `main` at `edef1ed`; the development branch `mvp` is aligned with that baseline. Implement the v0.4.0 behavior from this plan deliberately rather than relying on earlier reverted experiments.
 
@@ -282,19 +282,19 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Write tests proving two identical structured inputs produce the same fingerprint and any changed field produces a different fingerprint.
-- [ ] Include the complete collected evidence in each command’s input fingerprint: `RepoData` contains commits, diffs, plan summary, notes, path, branch, and HEAD SHA.
-- [ ] Include provider, resolved model, `redactDiff`, `since`, prompt-window options, and any command-specific flags in the command-level fingerprint.
-- [ ] For portfolio `brief` and `focus`, fingerprint the ordered list of collected repository data rather than only HEAD SHAs.
-- [ ] Preserve the current cache file atomic-write and TTL behavior; do not expand cache contents to include secrets or raw provider keys.
-- [ ] Add mutation tests for HEAD, plan, notes, goals, provider, model, redaction, and `since` changes. Confirm cache hits do not construct the fake client.
-- [ ] Run `go test ./internal/cache ./internal/ai -v`.
-- [ ] Commit as `fix: fingerprint all prompt inputs for cache invalidation`.
+- [x] Write tests proving two identical structured inputs produce the same fingerprint and any changed field produces a different fingerprint.
+- [x] Include the complete collected evidence in each command’s input fingerprint: `RepoData` contains commits, diffs, plan summary, notes, path, branch, and HEAD SHA.
+- [x] Include provider, resolved model, `redactDiff`, `since`, prompt-window options, and any command-specific flags in the command-level fingerprint.
+- [x] For portfolio `brief` and `focus`, fingerprint the ordered list of collected repository data rather than only HEAD SHAs.
+- [x] Preserve the current cache file atomic-write and TTL behavior; do not expand cache contents to include secrets or raw provider keys.
+- [x] Add mutation tests for HEAD, plan, notes, goals, provider, model, redaction, and `since` changes. Confirm cache hits do not construct the fake client.
+- [x] Run `go test ./internal/cache ./internal/ai -v`.
+- [x] Commit as `fix: fingerprint all prompt inputs for cache invalidation`.
 
 **Acceptance criteria:**
-- [ ] Editing a plan or note invalidates `brief`, `resume`, and `focus` without waiting for TTL expiry.
-- [ ] Switching provider, model, redaction mode, or lookback options cannot reuse an incompatible response.
-- [ ] Cache hits remain immediate and do not resolve API keys or construct network clients.
+- [x] Editing a plan or note invalidates `brief`, `resume`, and `focus` without waiting for TTL expiry.
+- [x] Switching provider, model, redaction mode, or lookback options cannot reuse an incompatible response.
+- [x] Cache hits remain immediate and do not resolve API keys or construct network clients.
 
 **Dependencies:** R2-T1 and R2-T2.
 
@@ -317,19 +317,19 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Write failing tests for focus scores below 1 and above 5, empty names/reasons, unknown repositories, duplicate repositories, too many entries, and oversized strings.
-- [ ] Validate required fields and bounded lengths immediately after parsing and before rendering or caching.
-- [ ] Pass the collected repository-name set into focus validation; reject a model-created repository instead of rendering it.
-- [ ] Make `ApplyDeadlineUrgency` ignore model-provided urgency and set it only when a parsed deadline is within the requested window and its description contains the repository name case-insensitively.
-- [ ] Ensure focus cache entries cannot be written until the response passes validation and deterministic urgency has been applied.
-- [ ] Add tests that use fixed `models.GoalsData` deadlines so urgency assertions do not depend on wall-clock time.
-- [ ] Run `go test ./internal/ai ./cmd -run 'Focus|Validate|Urgency' -v`.
-- [ ] Commit as `fix: validate and normalize focus responses`.
+- [x] Write failing tests for focus scores below 1 and above 5, empty names/reasons, unknown repositories, duplicate repositories, too many entries, and oversized strings.
+- [x] Validate required fields and bounded lengths immediately after parsing and before rendering or caching.
+- [x] Pass the collected repository-name set into focus validation; reject a model-created repository instead of rendering it.
+- [x] Make `ApplyDeadlineUrgency` ignore model-provided urgency and set it only when a parsed deadline is within the requested window and its description contains the repository name case-insensitively.
+- [x] Ensure focus cache entries cannot be written until the response passes validation and deterministic urgency has been applied.
+- [x] Add tests that use fixed `models.GoalsData` deadlines so urgency assertions do not depend on wall-clock time.
+- [x] Run `go test ./internal/ai ./cmd -run 'Focus|Validate|Urgency' -v`.
+- [x] Commit as `fix: validate and normalize focus responses`.
 
 **Acceptance criteria:**
-- [ ] Invalid ranking data fails with an actionable command error and is never cached.
-- [ ] Every rendered focus repository belongs to the collected set and appears once.
-- [ ] Deadline urgency is reproducible from parsed goals and the configured window, independent of model claims.
+- [x] Invalid ranking data fails with an actionable command error and is never cached.
+- [x] Every rendered focus repository belongs to the collected set and appears once.
+- [x] Deadline urgency is reproducible from parsed goals and the configured window, independent of model claims.
 
 **Dependencies:** R2-T1 and R3-T1.
 
@@ -348,17 +348,17 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Write a unit test with a missing registered repository that asserts the report contains `[FAIL]` and the returned error exposes the failure count.
-- [ ] Write a passing test that asserts a healthy fixture returns `nil` while retaining the existing human-readable summary.
-- [ ] Keep warnings non-fatal; only `FAIL` results produce a non-zero status.
-- [ ] Verify `Execute` prints the error to stderr and exits with status 1 by running the compiled binary in a subprocess test or a small test helper process.
-- [ ] Run `go test ./cmd -run Doctor -v` and `go build ./...`.
-- [ ] Commit as `fix: return failure status from doctor`.
+- [x] Write a unit test with a missing registered repository that asserts the report contains `[FAIL]` and the returned error exposes the failure count.
+- [x] Write a passing test that asserts a healthy fixture returns `nil` while retaining the existing human-readable summary.
+- [x] Keep warnings non-fatal; only `FAIL` results produce a non-zero status.
+- [x] Verify `Execute` prints the error to stderr and exits with status 1 by running the compiled binary in a subprocess test or a small test helper process.
+- [x] Run `go test ./cmd -run Doctor -v` and `go build ./...`.
+- [x] Commit as `fix: return failure status from doctor`.
 
 **Acceptance criteria:**
-- [ ] Shell scripts can gate on `devpulse doctor` exit status.
-- [ ] Human output still lists every pass, warning, and failure.
-- [ ] A warning-only diagnostic run remains successful.
+- [x] Shell scripts can gate on `devpulse doctor` exit status.
+- [x] Human output still lists every pass, warning, and failure.
+- [x] A warning-only diagnostic run remains successful.
 
 **Dependencies:** R1-T1.
 
@@ -384,31 +384,31 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Add scanner tests for multiline PEM blocks, AWS/GCP credential fragments, JWTs, `.env` assignments, high-entropy values, and normal code with no false-positive redaction.
-- [ ] Add pipeline tests proving commit messages, plan files, notes, and diffs containing instruction-like text are wrapped as untrusted data and cannot change the request schema.
-- [ ] Add tests proving dry-run output contains `[REDACTED]` where needed, never contains the original secret, and never constructs the fake client.
-- [ ] Add tests proving `--redact-diff` sends no diff content while retaining commit metadata, plans, notes, and goals; render an explicit low-trust banner.
-- [ ] Verify provider responses are scanned before parsing and that redacted response text is not written to cache or logs in unredacted form.
-- [ ] Audit log messages in the affected commands so they contain counts and event names, never prompt contents, API keys, or full model responses.
-- [ ] Run `go test ./internal/security ./internal/ai ./cmd -run 'Secret|Redact|DryRun|Prompt' -v`.
-- [ ] Commit as `fix: harden provider-boundary redaction`.
+- [x] Add scanner tests for multiline PEM blocks, AWS/GCP credential fragments, JWTs, `.env` assignments, high-entropy values, and normal code with no false-positive redaction.
+- [x] Add pipeline tests proving commit messages, plan files, notes, and diffs containing instruction-like text are wrapped as untrusted data and cannot change the request schema.
+- [x] Add tests proving dry-run output contains `[REDACTED]` where needed, never contains the original secret, and never constructs the fake client.
+- [x] Add tests proving `--redact-diff` sends no diff content while retaining commit metadata, plans, notes, and goals; render an explicit low-trust banner.
+- [x] Verify provider responses are scanned before parsing and that redacted response text is not written to cache or logs in unredacted form.
+- [x] Audit log messages in the affected commands so they contain counts and event names, never prompt contents, API keys, or full model responses.
+- [x] Run `go test ./internal/security ./internal/ai ./cmd -run 'Secret|Redact|DryRun|Prompt' -v`.
+- [x] Commit as `fix: harden provider-boundary redaction`.
 
 **Acceptance criteria:**
-- [ ] No tested secret reaches the fake provider, cache, log, or dry-run output in original form.
-- [ ] Prompt-injection text is treated as repository evidence and does not alter the requested JSON contract.
-- [ ] Redaction and dry-run behavior are consistent for `brief`, `resume`, `focus`, and `why`.
+- [x] No tested secret reaches the fake provider, cache, log, or dry-run output in original form.
+- [x] Prompt-injection text is treated as repository evidence and does not alter the requested JSON contract.
+- [x] Redaction and dry-run behavior are consistent for `brief`, `resume`, `focus`, and `why`.
 
 **Dependencies:** R2-T1 through R3-T2.
 
 **Estimated scope:** Large; split scanner and command changes into separate commits if review becomes difficult.
 
 **R3 exit gate — `v0.5.0`:**
-- [ ] Cache mutation tests pass for HEAD, plans, notes, goals, provider, model, redaction, and command options.
-- [ ] Invalid focus output is rejected and never cached.
-- [ ] Deadline urgency is computed from parsed goals, not trusted from model output.
-- [ ] A failing doctor check returns a non-zero status; warning-only output remains successful.
-- [ ] Dry-run and redaction tests prove original secrets do not reach the fake provider, cache, logs, or output.
-- [ ] No unresolved high-severity audit issue remains in the R3 scope.
+- [x] Cache mutation tests pass for HEAD, plans, notes, goals, provider, model, redaction, and command options.
+- [x] Invalid focus output is rejected and never cached.
+- [x] Deadline urgency is computed from parsed goals, not trusted from model output.
+- [x] A failing doctor check returns a non-zero status; warning-only output remains successful.
+- [x] Dry-run and redaction tests prove original secrets do not reach the fake provider, cache, logs, or output.
+- [x] No unresolved high-severity audit issue remains in the R3 scope.
 
 ### Release R4 — `v0.6.0` Testable CLI
 
@@ -440,19 +440,19 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Add command tests for missing provider key, unsupported provider, empty repository, deleted registered path, invalid `--since`, and malformed AI response.
-- [ ] Ensure errors name the failed operation and provide the next safe command where one exists; do not expose raw secrets or full provider payloads.
-- [ ] Update README command help and examples for `brief` with zero or one argument, including shell completion and checksum verification.
-- [ ] Update SECURITY.md data-flow, cache/history/log retention, key revocation, redaction guarantees, and known limitations so they match the code.
-- [ ] Update CONTRIBUTING.md with the required focused test, formatting, vet, build, and cross-platform checks.
-- [ ] Remove stale Gemini 2.0/1.5 claims and any unsupported statement that binaries are signed or that a specific installation script exists.
-- [ ] Run `go test ./...`, then manually compare `devpulse --help`, `devpulse brief --help`, and `devpulse doctor --help` with the documentation.
-- [ ] Commit as `docs: align v1 command and privacy contracts`.
+- [x] Add command tests for missing provider key, unsupported provider, empty repository, deleted registered path, invalid `--since`, and malformed AI response.
+- [x] Ensure errors name the failed operation and provide the next safe command where one exists; do not expose raw secrets or full provider payloads.
+- [x] Update README command help and examples for `brief` with zero or one argument, including shell completion and checksum verification.
+- [x] Update SECURITY.md data-flow, cache/history/log retention, key revocation, redaction guarantees, and known limitations so they match the code.
+- [x] Update CONTRIBUTING.md with the required focused test, formatting, vet, build, and cross-platform checks.
+- [x] Remove stale Gemini 2.0/1.5 claims and any unsupported statement that binaries are signed or that a specific installation script exists.
+- [x] Run `go test ./...`, then manually compare `devpulse --help`, `devpulse brief --help`, and `devpulse doctor --help` with the documentation.
+- [x] Commit as `docs: align v1 command and privacy contracts`.
 
 **Acceptance criteria:**
-- [ ] A clean user can follow the README to configure a provider, register a repository, and reach the first brief without undocumented prerequisites.
-- [ ] Documentation makes clear exactly what leaves the machine and what remains local.
-- [ ] Every documented model, flag, command, and release verification instruction exists in the implementation.
+- [x] A clean user can follow the README to configure a provider, register a repository, and reach the first brief without undocumented prerequisites.
+- [x] Documentation makes clear exactly what leaves the machine and what remains local.
+- [x] Every documented model, flag, command, and release verification instruction exists in the implementation.
 
 **Dependencies:** R2-T2, R3-T3, and R3-T4.
 
@@ -477,18 +477,18 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Write the fake client first; it must record prompt count and prompt text and return deterministic JSON for brief, portfolio brief, resume, focus, and why.
-- [ ] Build fixture helpers for: active feature work, stale repository, plan-heavy repository, no-plan repository, empty repository, renamed file, ambiguous repository names, and secret-bearing diff.
-- [ ] Make tests use `DEVPULSE_CONFIG` and temporary workspace paths rather than the real user home or keychain.
-- [ ] Ensure each test restores global provider, dry-run, redaction, color, `since`, manager, and client override state with `t.Cleanup`.
-- [ ] Add golden-file comparison helpers that normalize only platform line endings; do not strip meaningful content or ANSI codes unless the test explicitly requests `--no-color`.
-- [ ] Run `go test ./cmd -run TestFixture -v` repeatedly to prove tests are isolated and order-independent.
-- [ ] Commit as `test: add deterministic CLI fixture harness`.
+- [x] Write the fake client first; it must record prompt count and prompt text and return deterministic JSON for brief, portfolio brief, resume, focus, and why.
+- [x] Build fixture helpers for: active feature work, stale repository, plan-heavy repository, no-plan repository, empty repository, renamed file, ambiguous repository names, and secret-bearing diff.
+- [x] Make tests use `DEVPULSE_CONFIG` and temporary workspace paths rather than the real user home or keychain.
+- [x] Ensure each test restores global provider, dry-run, redaction, color, `since`, manager, and client override state with `t.Cleanup`.
+- [x] Add golden-file comparison helpers that normalize only platform line endings; do not strip meaningful content or ANSI codes unless the test explicitly requests `--no-color`.
+- [x] Run `go test ./cmd -run TestFixture -v` repeatedly to prove tests are isolated and order-independent.
+- [x] Commit as `test: add deterministic CLI fixture harness`.
 
 **Acceptance criteria:**
-- [ ] Command tests never use a real provider, network, real home directory, or real keychain.
-- [ ] The fixture corpus reproduces every high-risk audit scenario locally.
-- [ ] Tests pass when run individually and as a full package.
+- [x] Command tests never use a real provider, network, real home directory, or real keychain.
+- [x] The fixture corpus reproduces every high-risk audit scenario locally.
+- [x] Tests pass when run individually and as a full package.
 
 **Dependencies:** R1-T1 through R3-T4.
 
@@ -519,30 +519,30 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Add a focused brief golden test that asserts repository order, current focus, blockers, and next steps.
-- [ ] Add a portfolio brief golden test that asserts all fixture repositories appear once and one provider call is made.
-- [ ] Add resume, focus, health, why, commit, and doctor golden tests for the documented headings and failure/warning output.
-- [ ] Add explicit behavior tests for brief zero/one/ambiguous/invalid arguments and doctor failure exit status.
-- [ ] Add cache tests around the command harness showing the second run is a cache hit and every prompt-input mutation causes a miss.
-- [ ] Review each golden file manually for accidental paths, timestamps, secrets, provider payloads, or platform-specific noise.
-- [ ] Run `go test ./cmd -v` and update goldens only when the public contract intentionally changes.
-- [ ] Commit as `test: cover public command output contracts`.
+- [x] Add a focused brief golden test that asserts repository order, current focus, blockers, and next steps.
+- [x] Add a portfolio brief golden test that asserts all fixture repositories appear once and one provider call is made.
+- [x] Add resume, focus, health, why, commit, and doctor golden tests for the documented headings and failure/warning output.
+- [x] Add explicit behavior tests for brief zero/one/ambiguous/invalid arguments and doctor failure exit status.
+- [x] Add cache tests around the command harness showing the second run is a cache hit and every prompt-input mutation causes a miss.
+- [x] Review each golden file manually for accidental paths, timestamps, secrets, provider payloads, or platform-specific noise.
+- [x] Run `go test ./cmd -v` and update goldens only when the public contract intentionally changes.
+- [x] Commit as `test: cover public command output contracts`.
 
 **Acceptance criteria:**
-- [ ] Every public V1 command has a regression test for its successful output and its highest-risk error path.
-- [ ] Golden output is deterministic on Windows and POSIX runners.
-- [ ] A future command-contract regression fails a focused test before release.
+- [x] Every public V1 command has a regression test for its successful output and its highest-risk error path.
+- [x] Golden output is deterministic on Windows and POSIX runners.
+- [x] A future command-contract regression fails a focused test before release.
 
 **Dependencies:** R4-T2.
 
 **Estimated scope:** Large.
 
 **R4 exit gate — `v0.6.0`:**
-- [ ] README, SECURITY.md, CONTRIBUTING.md, Cobra help, defaults, and provider behavior agree.
-- [ ] Command tests do not use a real provider, network, real home directory, or real keychain.
-- [ ] `brief`, `resume`, `focus`, `health`, `why`, `commit`, and `doctor` each have success and high-risk error coverage.
-- [ ] Golden output is deterministic on Windows and POSIX runners.
-- [ ] `go test ./...` passes with the complete fixture suite.
+- [x] README, SECURITY.md, CONTRIBUTING.md, Cobra help, defaults, and provider behavior agree.
+- [x] Command tests do not use a real provider, network, real home directory, or real keychain.
+- [x] `brief`, `resume`, `focus`, `health`, `why`, `commit`, and `doctor` each have success and high-risk error coverage.
+- [x] Golden output is deterministic on Windows and POSIX runners.
+- [x] `go test ./...` passes with the complete fixture suite.
 
 ### Release R5 — `v0.7.0` Release Candidate
 
@@ -569,30 +569,30 @@ Sub-release tags are engineering checkpoints, not launch or marketing milestones
 
 **Steps:**
 
-- [ ] Add a Windows test job covering formatting, vet, tests, build, config path handling, registration, and doctor diagnostics.
-- [ ] Keep Linux checks for `gofmt`, `go vet`, `go test`, and `go build`; add `go test -race ./...` on Linux where supported.
-- [ ] Add `go mod verify` and a dependency vulnerability review step or documented pre-release command.
-- [ ] Confirm release GoReleaser targets and archive names match README instructions for Linux, Windows, and macOS; retain SHA-256 checksums.
-- [ ] Add a release smoke job or documented local procedure that extracts each archive, runs `devpulse version`, `devpulse --help`, and the clean-workspace test without a provider key.
-- [ ] Document the V1 release sequence: clean checkout, full checks, `goreleaser check`, snapshot build, archive inspection, checksum verification, tag from `main`, and rollback by removing the release/tag and publishing a corrected patch release.
-- [ ] Run the workflow commands locally as far as the installed toolchain allows and verify YAML syntax.
-- [ ] Commit as `ci: add cross-platform v1 release gates`.
+- [x] Add a Windows test job covering formatting, vet, tests, build, config path handling, registration, and doctor diagnostics.
+- [x] Keep Linux checks for `gofmt`, `go vet`, `go test`, and `go build`; add `go test -race ./...` on Linux where supported.
+- [x] Add `go mod verify` and a dependency vulnerability review step or documented pre-release command.
+- [x] Confirm release GoReleaser targets and archive names match README instructions for Linux, Windows, and macOS; retain SHA-256 checksums.
+- [x] Add a release smoke job or documented local procedure that extracts each archive, runs `devpulse version`, `devpulse --help`, and the clean-workspace test without a provider key.
+- [x] Document the V1 release sequence: clean checkout, full checks, `goreleaser check`, snapshot build, archive inspection, checksum verification, tag from `main`, and rollback by removing the release/tag and publishing a corrected patch release.
+- [x] Run the workflow commands locally as far as the installed toolchain allows and verify YAML syntax.
+- [x] Commit as `ci: add cross-platform v1 release gates`.
 
 **Acceptance criteria:**
-- [ ] Windows is a required CI target rather than an untested release destination.
-- [ ] Published archives contain the documented binary and required license/security/contributing files.
-- [ ] Checksums can be verified on POSIX and PowerShell using the documented commands.
+- [x] Windows is a required CI target rather than an untested release destination.
+- [x] Published archives contain the documented binary and required license/security/contributing files.
+- [x] Checksums can be verified on POSIX and PowerShell using the documented commands.
 
 **Dependencies:** R1-T1, R4-T1, and R4-T3.
 
 **Estimated scope:** Medium.
 
 **R5 exit gate — `v0.7.0`:**
-- [ ] Linux and Windows CI pass on the same Go version.
-- [ ] Linux race tests, vet, build, module verification, and formatting checks pass.
-- [ ] Snapshot archives contain the documented binary and required project files.
-- [ ] Checksums verify on POSIX and PowerShell.
-- [ ] The extracted binaries run `version`, `help`, and the clean-workspace smoke path.
+- [x] Linux and Windows CI pass on the same Go version.
+- [x] Linux race tests, vet, build, module verification, and formatting checks pass.
+- [x] Snapshot archives contain the documented binary and required project files.
+- [x] Checksums verify on POSIX and PowerShell.
+- [x] The extracted binaries run `version`, `help`, and the clean-workspace smoke path.
 
 ### Release R6 — `v1.0.0` Technical V1 Release
 

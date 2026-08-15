@@ -59,10 +59,10 @@ Source of truth: [tasks/plan.md](plan.md)
 
 ### R5 exit gate
 
-- [ ] Linux and Windows CI pass
-- [ ] Release archives and checksums verify
-- [ ] Extracted binaries pass smoke checks
-- [ ] `v0.7.0` release candidate is approved
+- [x] Linux and Windows CI pass
+- [x] Release archives and checksums verify
+- [x] Extracted binaries pass smoke checks
+- [x] `v0.7.0` release candidate is approved
 
 ## Release R6 — `v1.0.0` Technical V1 Release
 
