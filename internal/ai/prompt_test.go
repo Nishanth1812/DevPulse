@@ -40,7 +40,6 @@ func TestPromptsIncludeUntrustedWarning(t *testing.T) {
 		p    string
 	}{
 		{"brief", BuildBriefPrompt(sampleRepo(), sampleGoals())},
-		{"portfolio brief", BuildPortfolioBriefPrompt([]models.RepoData{sampleRepo()}, sampleGoals())},
 		{"resume", BuildResumePrompt(sampleRepo(), sampleGoals())},
 		{"focus", BuildFocusPrompt([]models.RepoData{sampleRepo()}, sampleGoals())},
 		{"why", BuildWhyPrompt("repo", "a.go", []models.CommitSummary{{Message: "m"}})},
@@ -52,18 +51,6 @@ func TestPromptsIncludeUntrustedWarning(t *testing.T) {
 				t.Fatalf("%s prompt missing injection warning", tc.name)
 			}
 		})
-	}
-}
-
-func TestPortfolioBriefPromptIncludesRepositoriesAndNotes(t *testing.T) {
-	first := sampleRepo()
-	second := sampleRepo()
-	second.Name = "second"
-	p := BuildPortfolioBriefPrompt([]models.RepoData{first, second}, sampleGoals())
-	for _, want := range []string{"Repository: sample", "Repository: second", "remember to run tests", untrustedDataInstructions} {
-		if !strings.Contains(p, want) {
-			t.Fatalf("portfolio prompt missing %q:\n%s", want, p)
-		}
 	}
 }
 

@@ -121,7 +121,7 @@ devpulse brief
 
 | Command | Description |
 |---|---|
-| `devpulse brief [repo]` | Cross-repo summary by default, or a focused brief for one repository |
+| `devpulse brief` | Cross-repo summary of what's in-flight, blocked, and stale (default command) |
 | `devpulse resume <repo>` | Deep context recovery for one repo — what you built, what's incomplete, next step |
 | `devpulse focus` | Ranks all repos by completion proximity, weighted against your goals |
 | `devpulse health` | Per-repo hygiene scan (rule-based, no LLM) |

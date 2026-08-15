@@ -20,48 +20,6 @@ func ParseBriefResponse(raw string) (BriefResponse, error) {
 	return r, nil
 }
 
-// ParsePortfolioBriefResponse parses and validates a cross-repository brief.
-// expectedRepos is the set of repositories that were included in the prompt;
-// requiring an exact match prevents a model from silently omitting a repo or
-// inventing one in the rendered output.
-func ParsePortfolioBriefResponse(raw string, expectedRepos []string) (PortfolioBriefResponse, error) {
-	clean := stripFences(raw)
-	var r PortfolioBriefResponse
-	if err := json.Unmarshal([]byte(clean), &r); err != nil {
-		return PortfolioBriefResponse{}, fmt.Errorf("ai: parse portfolio brief response: %w", err)
-	}
-	if len(r.Repos) == 0 {
-		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response missing required field: repos")
-	}
-
-	expected := make(map[string]struct{}, len(expectedRepos))
-	for _, name := range expectedRepos {
-		expected[name] = struct{}{}
-	}
-	seen := make(map[string]struct{}, len(r.Repos))
-	for _, item := range r.Repos {
-		if strings.TrimSpace(item.RepoName) == "" {
-			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief item missing required field: repo_name")
-		}
-		if strings.TrimSpace(item.Summary) == "" {
-			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief item %q missing required field: summary", item.RepoName)
-		}
-		if _, duplicate := seen[item.RepoName]; duplicate {
-			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response contains duplicate repository %q", item.RepoName)
-		}
-		seen[item.RepoName] = struct{}{}
-		if len(expected) > 0 {
-			if _, ok := expected[item.RepoName]; !ok {
-				return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response contains unknown repository %q", item.RepoName)
-			}
-		}
-	}
-	if len(expected) > 0 && len(seen) != len(expected) {
-		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response contains %d repositories, expected %d", len(seen), len(expected))
-	}
-	return r, nil
-}
-
 // ParseCommitResponse strips markdown fences if present, validates the JSON,
 // and unmarshals it into a CommitResponse. Returns an error if subject is missing.
 func ParseCommitResponse(raw string) (CommitResponse, error) {
