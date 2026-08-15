@@ -93,7 +93,7 @@ func (m *Manager) Save() error {
 	if err := os.WriteFile(tmp, buf.Bytes(), filePermission); err != nil {
 		return fmt.Errorf("write config file: %w", err)
 	}
-	if err := os.Chmod(tmp, filePermission); err != nil {
+	if err := enforceFilePermissions(tmp); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("set config permissions: %w", err)
 	}
@@ -197,7 +197,7 @@ func ensureWorkspace(baseDir string, configPath string) error {
 		if err := os.MkdirAll(dir, dirPermission); err != nil {
 			return fmt.Errorf("create directory %q: %w", dir, err)
 		}
-		if err := os.Chmod(dir, dirPermission); err != nil {
+		if err := enforceDirectoryPermissions(dir); err != nil {
 			return fmt.Errorf("set directory permissions for %q: %w", dir, err)
 		}
 	}
@@ -205,6 +205,9 @@ func ensureWorkspace(baseDir string, configPath string) error {
 	if configDir := filepath.Dir(configPath); configDir != baseDir {
 		if err := os.MkdirAll(configDir, dirPermission); err != nil {
 			return fmt.Errorf("create override config directory %q: %w", configDir, err)
+		}
+		if err := enforceDirectoryPermissions(configDir); err != nil {
+			return fmt.Errorf("set override config directory permissions for %q: %w", configDir, err)
 		}
 	}
 

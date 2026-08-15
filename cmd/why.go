@@ -64,6 +64,12 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("why: repository %q is not registered", repoName)
 	}
 
+	normalizedFilePath, err := collector.NormalizeRepoRelativePath(repoPath, filePath)
+	if err != nil {
+		return fmt.Errorf("why: %w", err)
+	}
+	filePath = normalizedFilePath
+
 	collectSpinner := output.NewSpinner(noColor)
 	collectSpinner.Start("Collecting commit history for file...")
 	commits, err := collector.CollectFileCommits(repoPath, filePath, 50, 15, !redactDiff)
