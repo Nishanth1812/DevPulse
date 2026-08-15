@@ -12,18 +12,18 @@ Source of truth: [tasks/plan.md](plan.md)
 - [x] Cross-platform workspace and path tests pass
 - [x] Stable absolute repository paths are stored
 - [x] File-history queries handle platform separators safely
-- [ ] `v0.3.0` engineering checkpoint is approved
+- [x] `v0.3.0` engineering checkpoint is approved
 
 ## Release R2 — `v0.4.0` Portfolio Brief
 
-- [ ] `R2-T1` — Define and test the portfolio brief response contract
-- [ ] `R2-T2` — Wire `brief` into dual-mode command behavior
+- [x] `R2-T1` — Define and test the portfolio brief response contract
+- [x] `R2-T2` — Wire `brief` into dual-mode command behavior
 
 ### R2 exit gate
 
-- [ ] `brief` works with zero and one repository argument
-- [ ] Cross-repository brief uses one provider call
-- [ ] Argument, completion, and output contract tests pass
+- [x] `brief` works with zero and one repository argument
+- [x] Cross-repository brief uses one provider call
+- [x] Argument, completion, and output contract tests pass
 - [ ] `v0.4.0` engineering checkpoint is approved
 
 ## Release R3 — `v0.5.0` Trust and Correctness

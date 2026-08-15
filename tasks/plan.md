@@ -24,7 +24,7 @@
 
 ## Current baseline and dependency order
 
-The current checkout is branch `mvp` at `b34959b`, ahead of `origin/mvp` by ten commits. The intended fixes for cross-repository `brief`, cache invalidation, Windows workspace handling, and Windows CI exist in the local history but were reverted. Implement the behavior from this plan deliberately rather than relying on the reverted commits.
+The v0.3.0 release baseline is tag `v0.3.0` on `main` at `edef1ed`; the development branch `mvp` is aligned with that baseline. Implement the v0.4.0 behavior from this plan deliberately rather than relying on earlier reverted experiments.
 
 Known audit blockers to close:
 

@@ -27,6 +27,8 @@ var (
 	redactDiff bool
 	provider   string
 	manager    *config.Manager
+
+	clientFactoryOverride func(command string, deep bool) ai.ClientFactory
 )
 
 var rootCmd = &cobra.Command{
@@ -120,6 +122,9 @@ func resolveModel(command string, deep bool) string {
 // The client is only constructed on a cache miss, so cached runs never touch
 // the API key or network.
 func newClientFactory(command string, deep bool) ai.ClientFactory {
+	if clientFactoryOverride != nil {
+		return clientFactoryOverride(command, deep)
+	}
 	return func() (ai.Client, error) {
 		apiKey, err := config.GetAPIKey(provider)
 		if err != nil {
