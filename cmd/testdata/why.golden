@@ -1,0 +1,10 @@
+
+=== Why: internal/app.go in alpha ===
+
+Purpose: Application entry point
+
+Major Decisions:
+  [2026-01-01] Added command boundary
+
+Current State: Stable
+

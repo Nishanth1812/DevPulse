@@ -46,6 +46,20 @@ func Init(logDir string) error {
 	return nil
 }
 
+// Close releases the current log file. It is primarily used by command
+// harnesses and tests that create short-lived workspaces; production commands
+// naturally release the descriptor when the process exits.
+func Close() error {
+	if defaultLogger == nil || defaultLogger.file == nil {
+		return nil
+	}
+	defaultLogger.mu.Lock()
+	defer defaultLogger.mu.Unlock()
+	err := defaultLogger.file.Close()
+	defaultLogger = nil
+	return err
+}
+
 func Log(level string, command string, message string) {
 	if defaultLogger == nil {
 		return

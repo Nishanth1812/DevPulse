@@ -51,6 +51,7 @@ func runCommit(cmd *cobra.Command, args []string) error {
 		Cache:       nil,
 		CacheMaxAge: 0,
 		DryRun:      dryRun,
+		RedactDiff:  redactDiff,
 		Out:         cmd.OutOrStdout(),
 		ErrOut:      cmd.ErrOrStderr(),
 		Spinner:     spinnerFactory(),

@@ -1,0 +1,17 @@
+
+=== Brief: alpha (main) ===
+
+Summary line
+
+Key Changes:
+  • Added parser
+  • Added tests
+
+Current Focus: Validation
+
+Blockers:
+  ! Provider key missing
+
+Next Steps:
+  → Run tests
+

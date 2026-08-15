@@ -51,6 +51,9 @@ type RunOptions struct {
 	MaxPromptTokens int
 	// DryRun prints the prompt instead of calling the API.
 	DryRun bool
+	// RedactDiff marks that diff content was intentionally omitted from the
+	// collected evidence and makes the reduced-context boundary visible.
+	RedactDiff bool
 	// Out and ErrOut receive user-facing output and warnings.
 	Out    io.Writer
 	ErrOut io.Writer
@@ -138,7 +141,7 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 	}
 
 	if opts.DryRun {
-		printDryRun(opts.Out, opts.Provider, opts.DryRunInfo(prompt, goals), prompt)
+		printDryRun(opts.Out, opts.Provider, opts.DryRunInfo(prompt, goals), prompt, opts.RedactDiff)
 		return nil, nil
 	}
 
@@ -184,9 +187,12 @@ func Run(ctx context.Context, opts RunOptions) (any, error) {
 }
 
 // printDryRun writes a formatted dry-run dump to w.
-func printDryRun(w io.Writer, provider, info, prompt string) {
+func printDryRun(w io.Writer, provider, info, prompt string, redactDiff bool) {
 	_, _ = fmt.Fprintf(w, "=== DRY RUN ===\n")
 	_, _ = fmt.Fprintf(w, "Provider: %s\n", provider)
+	if redactDiff {
+		_, _ = fmt.Fprintln(w, "Privacy: diff content omitted (--redact-diff); context is reduced")
+	}
 	if info != "" {
 		_, _ = fmt.Fprintf(w, "%s\n", info)
 	}

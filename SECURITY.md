@@ -2,12 +2,17 @@
 
 ## Data That Leaves Your Machine
 
-Only the following data is sent to the AI provider (Groq or Gemini):
+Only the following redacted, bounded data is sent to the AI provider (Groq or Gemini):
 
 - **Commit messages** — subject lines and bodies from recent commits
 - **Compressed diffs** — changed lines only, capped at 80 lines per file, with blank lines, whitespace-only changes, and import-only changes stripped; binary files replaced with a placeholder
 - **Plan file summaries** — contents of PLAN.md, ROADMAP.md, TODO.md, etc., with completed checkboxes stripped and capped at 300 lines
 - **Goals file** — the Now, Next, Deadlines, and Someday sections from `~/.devpulse/goals.md`
+
+Repository text and goals are wrapped as untrusted evidence in provider
+prompts. Instructions embedded in commits, plans, notes, or diffs are not
+treated as DevPulse commands. Model output is scanned again before parsing,
+rendering, or caching.
 
 Full file contents are never sent. Only lines that actually changed (in diffs) or headings and active items (in plan files) are included.
 
@@ -78,7 +83,8 @@ Before sending any data to an AI provider, you can inspect exactly what will be 
     devpulse brief my-repo --dry-run
     devpulse commit --dry-run
 
-This prints the full prompt and an estimated token count without making any API call.
+This prints the post-redaction provider-bound prompt and an estimated token
+count without making an API call or constructing a provider client.
 
 ### --redact-diff
 
@@ -99,12 +105,17 @@ Before any prompt is sent to an AI provider, DevPulse scans it for patterns that
 - JWTs (`eyJ...`)
 - Slack tokens (`xox*-...`)
 - Inline credentials (`api_key: "..."`, `secret = "..."`)
+- `.env` assignments, AWS secret/session variables, GCP private-key fragments,
+  and high-entropy values next to credential hints
 
 If any of these patterns are detected, the matching content is replaced with a redaction placeholder before the prompt is sent, and a warning is printed to stderr.
 
 ## Log Sanitization
 
-Log files written to `~/.devpulse/logs/` are sanitized to remove the same secret patterns before they are written to disk. Log files have `0600` permissions and are automatically purged after 7 days.
+Log files contain event names, counts, and metadata only; prompts, API keys,
+and full model responses are not logged. Error text is sanitized before it is
+written. Log files have `0600` permissions and are automatically purged after
+7 days.
 
 ## File Permissions
 

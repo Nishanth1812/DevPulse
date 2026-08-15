@@ -44,6 +44,9 @@ var rootCmd = &cobra.Command{
 		case "version", "help", "completion":
 			return nil
 		}
+		if provider != ai.ProviderGroq && provider != ai.ProviderGemini {
+			return fmt.Errorf("unsupported provider %q (supported: %s, %s)", provider, ai.ProviderGroq, ai.ProviderGemini)
+		}
 
 		loaded, err := config.Load()
 		if err != nil {

@@ -1,0 +1,8 @@
+
+=== DevPulse Doctor ===
+
+[PASS] Config file loaded
+[WARN] No API key (optional)
+[FAIL] Repo "alpha": path does not exist
+
+2 issue(s) found: 1 pass, 1 warn, 1 fail

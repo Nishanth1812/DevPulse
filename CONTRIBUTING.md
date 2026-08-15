@@ -48,7 +48,18 @@ cd devpulse
 go build ./...
 go test ./...
 go vet ./...
+go mod verify
 ```
+
+Before opening an integration change, also run:
+
+```sh
+gofmt -l .
+go test -race ./...   # Linux or another supported race-detector runner
+```
+
+Command tests must use temporary fixtures and fake providers. They must not
+require a real provider, network, home directory, or keychain.
 
 ## Finding / creating an issue
 
@@ -61,10 +72,13 @@ go vet ./...
 
 ## Making changes
 
-Please work against the `main` branch.
+Please work against the `mvp` branch for development work. The `dev` and
+`main` branches are integration and release branches.
 
 ```sh
-git checkout -b fix/your-fix main
+git checkout mvp
+git pull --ff-only origin mvp
+git checkout -b fix/your-fix mvp
 # ... make changes ...
 ```
 
@@ -100,18 +114,25 @@ feat: add --since flag to the resume command
 
 ## Submitting a pull request
 
-1. Push your branch and open a pull request against `main`.
+1. Push your branch and open a pull request against `mvp`.
 2. Fill in the PR template — describe *what* changed and *why*.
-3. Make sure CI (build + vet + test) passes.
+3. Make sure CI (format + build + vet + test) passes.
 4. If your PR addresses an issue, link it in the description (e.g. "Closes #123").
 
-> Releases are published from Git tags on `main`. Merging a PR to `main` does **not** create a release. To release, tag a version:
+> Releases are published from Git tags on `main`. Merging to `mvp` does **not** create a release; changes still flow through `dev` and an approved `main` merge. To release, tag a version from `main`:
 
 ```sh
 git checkout main
 git pull origin main
-git tag v0.2.0          # next semantic version
-git push origin v0.2.0  # triggers GitHub Actions to build and release
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z  # triggers GitHub Actions to build and release
+```
+
+Verify a Windows archive with SHA-256 before extracting it:
+
+```powershell
+Get-FileHash .\devpulse_Windows_x86_64.zip -Algorithm SHA256
+Select-String .\checksums.txt devpulse_Windows_x86_64.zip
 ```
 
 ## Reviewing

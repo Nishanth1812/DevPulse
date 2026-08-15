@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -130,7 +131,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		results = append(results, checkResult{"FAIL", "Sensitive content detector not working"})
 	}
 
-	// Print results
+	return renderDoctor(w, results)
+}
+
+func renderDoctor(w io.Writer, results []checkResult) error {
 	if _, err := fmt.Fprintf(w, "\n=== DevPulse Doctor ===\n\n"); err != nil {
 		return err
 	}

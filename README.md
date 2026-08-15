@@ -157,8 +157,20 @@ Config lives at `~/.devpulse/config.toml`. It stores only non-sensitive settings
 
 ```sh
 devpulse config get model.fast
-devpulse config set model.fast gemini-2.0-flash
+devpulse config set model.fast gemini-2.5-flash-lite
 devpulse config set fuzzy.threshold 50
+```
+
+The fast defaults are Groq `openai/gpt-oss-20b` and Gemini
+`gemini-2.5-flash-lite`; the deep Gemini default is `gemini-2.5-flash`.
+Cached responses expire after 24 hours by default.
+
+`brief` accepts zero or one repository argument:
+
+```sh
+devpulse brief             # portfolio result for all registered repositories
+devpulse brief acm         # focused result for one partial repository name
+devpulse brief --help
 ```
 
 ---
@@ -190,9 +202,17 @@ go build ./...
 Run the test suite and vet:
 
 ```sh
+gofmt -l .                 # must print nothing
 go test ./...
 go vet ./...
+go build ./...
+go mod verify
 ```
+
+Command tests use temporary fixture repositories and fake providers; they do
+not require a real API key, network access, home directory, or keychain.
+Supported Linux runners also run `go test -race ./...`; Windows CI covers the
+same formatting, vet, test, build, and clean-workspace checks.
 
 DevPulse uses [Conventional Commits](https://www.conventionalcommits.org/) to drive the automatically-grouped [release changelog](.goreleaser.yaml).
 
