@@ -32,6 +32,9 @@ go test ./cmd ./internal/... -v
 The fixture and golden tests must remain network-free and must not use a real
 home directory, keychain, provider, or API key.
 
+The `mvp` CI workflow also builds a non-publishing GoReleaser snapshot and
+checks its archives, SHA-256 file, and extracted Linux binary.
+
 ## GoReleaser verification
 
 Validate the configuration and create a clean snapshot:

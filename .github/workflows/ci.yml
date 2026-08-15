@@ -96,3 +96,55 @@ jobs:
     steps:
       - name: Review dependency changes
         uses: actions/dependency-review-action@v4
+
+  release-smoke:
+    needs:
+      - test-linux
+      - test-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate GoReleaser configuration
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> 2.0"
+          args: check
+
+      - name: Build snapshot archives
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> 2.0"
+          args: release --snapshot --clean
+
+      - name: Verify snapshot archives, checksums, and smoke binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -c checksums.txt
+
+          linux_archive=$(find . -maxdepth 1 -name '*Linux*x86_64*.tar.gz' -print -quit)
+          windows_archive=$(find . -maxdepth 1 -name '*Windows*x86_64*.zip' -print -quit)
+          test -n "$linux_archive"
+          test -n "$windows_archive"
+
+          for required in README.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md; do
+            tar -tzf "$linux_archive" | grep -qx "$required"
+            unzip -Z1 "$windows_archive" | grep -qx "$required"
+          done
+          tar -tzf "$linux_archive" | grep -qx 'devpulse'
+          unzip -Z1 "$windows_archive" | grep -qx 'devpulse.exe'
+
+          smoke_dir=$(mktemp -d)
+          tar -xzf "$linux_archive" -C "$smoke_dir"
+          "$smoke_dir/devpulse" version
+          "$smoke_dir/devpulse" --help
