@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -164,6 +165,25 @@ func TestCollectFileCommits(t *testing.T) {
 	for _, c := range noDiff {
 		if c.DiffSnippet != "" {
 			t.Fatalf("expected no diff for commit %q when includeDiff=false", c.Message)
+		}
+	}
+}
+
+func TestNormalizeRepoRelativePath(t *testing.T) {
+	root := t.TempDir()
+
+	got, err := NormalizeRepoRelativePath(root, `internal\api\handler.go`)
+	if err != nil {
+		t.Fatalf("NormalizeRepoRelativePath: %v", err)
+	}
+	if got != "internal/api/handler.go" {
+		t.Fatalf("normalized path = %q, want %q", got, "internal/api/handler.go")
+	}
+
+	outside := filepath.Join(root, "..", "outside.go")
+	for _, input := range []string{"../outside.go", `..\outside.go`, outside, `C:\outside.go`} {
+		if _, err := NormalizeRepoRelativePath(root, input); err == nil {
+			t.Fatalf("expected path %q to be rejected", input)
 		}
 	}
 }

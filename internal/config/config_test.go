@@ -15,10 +15,26 @@ func setConfigEnv(t *testing.T, path string) {
 	t.Setenv(ConfigEnv, path)
 }
 
+func setTestHome(t *testing.T, home string) {
+	t.Helper()
+	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
+}
+
+func useTempConfig(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	setTestHome(t, home)
+	configPath := filepath.Join(home, "devpulse", "config.toml")
+	setConfigEnv(t, configPath)
+	return configPath
+}
+
 func TestWorkspaceBaseDirDefault(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	setTestHome(t, home)
 	base, err := WorkspaceBaseDir()
 	if err != nil {
 		t.Fatalf("WorkspaceBaseDir: %v", err)
@@ -31,7 +47,7 @@ func TestWorkspaceBaseDirDefault(t *testing.T) {
 
 func TestWorkspaceBaseDirFollowsConfig(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	cfgDir := filepath.Join(home, "custom", "devpulse")
 	setConfigEnv(t, filepath.Join(cfgDir, "config.toml"))
 
@@ -45,6 +61,7 @@ func TestWorkspaceBaseDirFollowsConfig(t *testing.T) {
 }
 
 func TestRegisterRepositoryRejectsNonGitDir(t *testing.T) {
+	useTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -73,6 +90,7 @@ func TestRegisterRepositoryRejectsNonGitDir(t *testing.T) {
 }
 
 func TestRegisterRepositoryRejectsMissingPath(t *testing.T) {
+	useTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -82,7 +100,35 @@ func TestRegisterRepositoryRejectsMissingPath(t *testing.T) {
 	}
 }
 
+func TestRegisterRepositoryStoresCleanAbsolutePath(t *testing.T) {
+	useTempConfig(t)
+	m, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	parent := t.TempDir()
+	repoDir := filepath.Join(parent, "repo")
+	if err := os.MkdirAll(repoDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if _, err := git.PlainInit(repoDir, false); err != nil {
+		t.Fatalf("PlainInit: %v", err)
+	}
+
+	input := filepath.Join(parent, "nested", "..", "repo")
+	registered, err := m.RegisterRepository(input)
+	if err != nil {
+		t.Fatalf("RegisterRepository: %v", err)
+	}
+	want := filepath.Clean(repoDir)
+	if registered.Path != want {
+		t.Fatalf("registered path = %q, want %q", registered.Path, want)
+	}
+}
+
 func TestSaveConfigRoundTrip(t *testing.T) {
+	useTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -104,7 +150,7 @@ func TestSaveConfigRoundTrip(t *testing.T) {
 
 func TestSaveIsAtomic(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	setConfigEnv(t, filepath.Join(home, "devpulse", "config.toml"))
 
 	m, err := Load()
@@ -124,9 +170,8 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("temporary file left behind after save: %v", err)
 	}
 
-	// Config must have restrictive permissions. Windows has no POSIX
-	// permission bits (Go reports 0666 and Chmod is a no-op for them), so only
-	// enforce this on POSIX platforms.
+	// POSIX mode bits are meaningful on Unix. Windows uses ACLs instead and
+	// should be covered by successful read/write behavior rather than 0600.
 	if runtime.GOOS != "windows" {
 		info, err := os.Stat(m.ConfigPath())
 		if err != nil {
@@ -144,5 +189,19 @@ func TestSaveIsAtomic(t *testing.T) {
 	}
 	if m2.config.RegisteredRepos["a"] != "/repo/a" {
 		t.Fatalf("registered repo lost after save: %v", m2.config.RegisteredRepos)
+	}
+}
+
+func TestLoadExistingWorkspace(t *testing.T) {
+	home := t.TempDir()
+	setTestHome(t, home)
+	configPath := filepath.Join(home, "devpulse", "config.toml")
+	setConfigEnv(t, configPath)
+
+	if _, err := Load(); err != nil {
+		t.Fatalf("initial Load: %v", err)
+	}
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load existing workspace: %v", err)
 	}
 }

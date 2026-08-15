@@ -112,6 +112,12 @@ func CollectCommits(
 // Only the newest fullDiffCommits commits keep their diffs; older ones are
 // reduced to messages to bound prompt size (0 = keep all diffs).
 func CollectFileCommits(repoPath, filePath string, maxCommits, fullDiffCommits int, includeDiff bool) ([]models.CommitSummary, error) {
+	normalizedFilePath, err := NormalizeRepoRelativePath(repoPath, filePath)
+	if err != nil {
+		return nil, err
+	}
+	filePath = normalizedFilePath
+
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
 		return nil, err

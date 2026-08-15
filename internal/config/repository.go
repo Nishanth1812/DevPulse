@@ -26,7 +26,12 @@ func (m *Manager) ListRepositories() []models.RegisteredRepo {
 }
 
 func (m *Manager) RegisterRepository(path string) (models.RegisteredRepo, error) {
-	info, err := os.Stat(path)
+	absolutePath, err := NormalizeRepoPath(path)
+	if err != nil {
+		return models.RegisteredRepo{}, err
+	}
+
+	info, err := os.Stat(absolutePath)
 	if err != nil {
 		return models.RegisteredRepo{}, fmt.Errorf("stat repository path %q: %w", path, err)
 	}
@@ -34,11 +39,6 @@ func (m *Manager) RegisterRepository(path string) (models.RegisteredRepo, error)
 		return models.RegisteredRepo{}, fmt.Errorf("repository path %q is not a directory", path)
 	}
 
-	absolutePath, err := filepath.Abs(path)
-	if err != nil {
-		return models.RegisteredRepo{}, fmt.Errorf("resolve absolute repository path: %w", err)
-	}
-	absolutePath = filepath.Clean(absolutePath)
 	name := filepath.Base(absolutePath)
 	if name == "." || name == string(filepath.Separator) || name == "" {
 		return models.RegisteredRepo{}, fmt.Errorf("could not derive repository name from %q", absolutePath)
@@ -66,6 +66,23 @@ func (m *Manager) RegisterRepository(path string) (models.RegisteredRepo, error)
 	}
 
 	return repo, nil
+}
+
+// NormalizeRepoPath returns a cleaned absolute path for a repository
+// registration. It deliberately does not resolve symlinks: the path saved in
+// config should remain the path the user selected while still being stable for
+// relative inputs and duplicate-path checks.
+func NormalizeRepoPath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("repository path cannot be empty")
+	}
+
+	absolute, err := filepath.Abs(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("resolve absolute repository path: %w", err)
+	}
+	return filepath.Clean(absolute), nil
 }
 
 func (m *Manager) UnregisterRepository(name string) error {
