@@ -1,6 +1,9 @@
 package ai
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseBriefResponse(t *testing.T) {
 	raw := `{"summary":"Good state","key_changes":["a"],"current_focus":"x","blockers":[],"next_steps":["y"]}`
@@ -34,6 +37,74 @@ func TestParseBriefResponseMissingSummary(t *testing.T) {
 func TestParseBriefResponseInvalidJSON(t *testing.T) {
 	if _, err := ParseBriefResponse("not json"); err == nil {
 		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestParsePortfolioBriefResponse(t *testing.T) {
+	raw := `{"repos":[{"repo_name":"alpha","summary":"A","current_focus":"B","blockers":["C"],"next_steps":["D"]}]}`
+	response, err := ParsePortfolioBriefResponse(raw)
+	if err != nil {
+		t.Fatalf("ParsePortfolioBriefResponse: %v", err)
+	}
+	if len(response.Repos) != 1 || response.Repos[0].RepoName != "alpha" {
+		t.Fatalf("parsed %+v", response)
+	}
+}
+
+func TestParsePortfolioBriefResponseWithFences(t *testing.T) {
+	raw := "```json\n{\"repos\":[{\"repo_name\":\"fenced\",\"summary\":\"ok\"}]}\n```"
+	response, err := ParsePortfolioBriefResponse(raw)
+	if err != nil {
+		t.Fatalf("ParsePortfolioBriefResponse with fences: %v", err)
+	}
+	if response.Repos[0].RepoName != "fenced" {
+		t.Fatalf("repo name = %q", response.Repos[0].RepoName)
+	}
+}
+
+func TestParsePortfolioBriefResponseValidation(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "missing repos",
+			raw:  `{}`,
+			want: "missing required field: repos",
+		},
+		{
+			name: "empty repository name",
+			raw:  `{"repos":[{"repo_name":"  ","summary":"ok"}]}`,
+			want: "repository name",
+		},
+		{
+			name: "duplicate repository names",
+			raw:  `{"repos":[{"repo_name":"same","summary":"one"},{"repo_name":"same","summary":"two"}]}`,
+			want: "duplicate repository",
+		},
+		{
+			name: "oversized summary",
+			raw:  `{"repos":[{"repo_name":"large","summary":"` + strings.Repeat("x", maxPortfolioSummaryLength+1) + `"}]}`,
+			want: "summary",
+		},
+		{
+			name: "malformed json",
+			raw:  `{"repos":[`,
+			want: "parse",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParsePortfolioBriefResponse(tc.raw)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tc.want)) {
+				t.Fatalf("error = %q, want substring %q", err, tc.want)
+			}
+		})
 	}
 }
 

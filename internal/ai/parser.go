@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // ParseBriefResponse strips markdown fences if present, validates the JSON,
@@ -18,6 +19,85 @@ func ParseBriefResponse(raw string) (BriefResponse, error) {
 		return BriefResponse{}, fmt.Errorf("ai: brief response missing required field: summary")
 	}
 	return r, nil
+}
+
+// ParsePortfolioBriefResponse strips optional markdown fences, validates the
+// bounded portfolio response contract, and unmarshals it into a typed value.
+func ParsePortfolioBriefResponse(raw string) (PortfolioBriefResponse, error) {
+	clean := stripFences(raw)
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(clean), &fields); err != nil {
+		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response parse: %w", err)
+	}
+	reposRaw, ok := fields["repos"]
+	if !ok || strings.TrimSpace(string(reposRaw)) == "null" {
+		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response missing required field: repos")
+	}
+
+	var response PortfolioBriefResponse
+	if err := json.Unmarshal(reposRaw, &response.Repos); err != nil {
+		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response parse repos: %w", err)
+	}
+	if len(response.Repos) > maxPortfolioItems {
+		return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response contains %d repositories; maximum is %d", len(response.Repos), maxPortfolioItems)
+	}
+
+	seen := make(map[string]struct{}, len(response.Repos))
+	for i := range response.Repos {
+		item := &response.Repos[i]
+		item.RepoName = strings.TrimSpace(item.RepoName)
+		if item.RepoName == "" {
+			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response repository name at index %d is empty", i)
+		}
+		if runeLen(item.RepoName) > maxPortfolioRepoNameLength {
+			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response repository name %q exceeds %d characters", item.RepoName, maxPortfolioRepoNameLength)
+		}
+		if _, exists := seen[item.RepoName]; exists {
+			return PortfolioBriefResponse{}, fmt.Errorf("ai: portfolio brief response duplicate repository %q", item.RepoName)
+		}
+		seen[item.RepoName] = struct{}{}
+
+		item.Summary = strings.TrimSpace(item.Summary)
+		item.CurrentFocus = strings.TrimSpace(item.CurrentFocus)
+		if err := validatePortfolioText("summary", item.RepoName, item.Summary, maxPortfolioSummaryLength); err != nil {
+			return PortfolioBriefResponse{}, err
+		}
+		if err := validatePortfolioText("current_focus", item.RepoName, item.CurrentFocus, maxPortfolioFocusLength); err != nil {
+			return PortfolioBriefResponse{}, err
+		}
+		if err := validatePortfolioList("blockers", item.RepoName, item.Blockers); err != nil {
+			return PortfolioBriefResponse{}, err
+		}
+		if err := validatePortfolioList("next_steps", item.RepoName, item.NextSteps); err != nil {
+			return PortfolioBriefResponse{}, err
+		}
+	}
+
+	return response, nil
+}
+
+func validatePortfolioText(field, repoName, value string, limit int) error {
+	if runeLen(value) > limit {
+		return fmt.Errorf("ai: portfolio brief response %s for repository %q exceeds %d characters", field, repoName, limit)
+	}
+	return nil
+}
+
+func validatePortfolioList(field, repoName string, values []string) error {
+	if len(values) > maxPortfolioListLength {
+		return fmt.Errorf("ai: portfolio brief response %s for repository %q contains %d items; maximum is %d", field, repoName, len(values), maxPortfolioListLength)
+	}
+	for _, value := range values {
+		if runeLen(strings.TrimSpace(value)) > maxPortfolioListItemLength {
+			return fmt.Errorf("ai: portfolio brief response %s item for repository %q exceeds %d characters", field, repoName, maxPortfolioListItemLength)
+		}
+	}
+	return nil
+}
+
+func runeLen(value string) int {
+	return utf8.RuneCountInString(value)
 }
 
 // ParseCommitResponse strips markdown fences if present, validates the JSON,

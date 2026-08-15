@@ -74,6 +74,50 @@ func TestFocusPromptTruncationIsRuneSafe(t *testing.T) {
 	}
 }
 
+func TestPortfolioBriefPromptIncludesEachRepositoryAndEvidence(t *testing.T) {
+	first := sampleRepo()
+	first.Name = "alpha"
+	first.Branch = "feature/alpha"
+	first.PlanSummary = "alpha plan"
+	first.Notes = "alpha notes"
+	first.Commits[0].DiffSnippet = "alpha diff"
+
+	second := sampleRepo()
+	second.Name = "beta"
+	second.Branch = "main"
+	second.PlanSummary = "beta plan"
+	second.Notes = "beta notes"
+	second.Commits[0].Message = "beta commit"
+	second.Commits[0].DiffSnippet = "beta diff"
+
+	prompt := BuildPortfolioBriefPrompt([]models.RepoData{first, second}, sampleGoals())
+	for _, want := range []string{
+		`{"repos":[{"repo_name":"string"`,
+		"## Repository: alpha",
+		"## Repository: beta",
+		"Branch: feature/alpha",
+		"Branch: main",
+		"alpha plan",
+		"beta plan",
+		"alpha notes",
+		"beta notes",
+		"alpha diff",
+		"beta diff",
+		"ship v1",
+		untrustedDataInstructions,
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("portfolio prompt missing %q:\n%s", want, prompt)
+		}
+	}
+	if got := strings.Count(prompt, "## Repository: alpha"); got != 1 {
+		t.Fatalf("alpha repository heading count = %d, want 1", got)
+	}
+	if got := strings.Count(prompt, "## Repository: beta"); got != 1 {
+		t.Fatalf("beta repository heading count = %d, want 1", got)
+	}
+}
+
 func TestRetryable(t *testing.T) {
 	cases := []struct {
 		name string
