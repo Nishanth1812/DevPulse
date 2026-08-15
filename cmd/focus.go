@@ -88,6 +88,7 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		}{redactDiff, 10}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
+		RedactDiff:  redactDiff,
 		Out:         cmd.OutOrStdout(),
 		ErrOut:      cmd.ErrOrStderr(),
 		Spinner:     spinnerFactory(),

@@ -24,6 +24,8 @@
 
 ## Current baseline and dependency order
 
+**Implementation status (2026-08-15):** R3 (`v0.5.0`) and R4 (`v0.6.0`) are implemented and locally verified on `mvp`. R5 (`v0.7.0`) implementation is complete; its remote Linux/Windows CI gate is the remaining verification checkpoint before marking the release-candidate gate approved. R6 remains out of scope for this push.
+
 The v0.3.0 release baseline is tag `v0.3.0` on `main` at `edef1ed`; the development branch `mvp` is aligned with that baseline. Implement the v0.4.0 behavior from this plan deliberately rather than relying on earlier reverted experiments.
 
 Known audit blockers to close:

@@ -45,6 +45,16 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Validate GoReleaser configuration
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> 2.0"
+          args: check
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -53,3 +63,18 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release archives and checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          gh release download "$GITHUB_REF_NAME" --dir release-assets
+          cd release-assets
+          sha256sum -c checksums.txt
+          for archive in *.tar.gz; do
+            tar -tzf "$archive" | grep -qx './devpulse' || tar -tzf "$archive" | grep -qx 'devpulse'
+          done
+          for archive in *.zip; do
+            unzip -Z1 "$archive" | grep -qx 'devpulse.exe'
+          done

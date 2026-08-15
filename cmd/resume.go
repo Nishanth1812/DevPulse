@@ -103,6 +103,7 @@ func runResume(cmd *cobra.Command, args []string) error {
 		CacheInputs: []any{repoData, briefCacheOptions{RedactDiff: redactDiff, Since: since, MaxCommits: 50, FullDiffCommits: 15, IncludeDiff: !redactDiff}},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
+		RedactDiff:  redactDiff,
 		Out:         cmd.OutOrStdout(),
 		ErrOut:      cmd.ErrOrStderr(),
 		Spinner:     spinnerFactory(),

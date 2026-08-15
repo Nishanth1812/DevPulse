@@ -108,6 +108,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 		CacheInputs: []any{repoName, filePath, commits, struct{ RedactDiff bool }{redactDiff}, newestSHA},
 		CacheMaxAge: cacheMaxAge,
 		DryRun:      dryRun,
+		RedactDiff:  redactDiff,
 		Out:         cmd.OutOrStdout(),
 		ErrOut:      cmd.ErrOrStderr(),
 		Spinner:     spinnerFactory(),

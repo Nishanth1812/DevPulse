@@ -24,38 +24,38 @@ Source of truth: [tasks/plan.md](plan.md)
 - [x] `brief` works with zero and one repository argument
 - [x] Cross-repository brief uses one provider call
 - [x] Argument, completion, and output contract tests pass
-- [ ] `v0.4.0` engineering checkpoint is approved
+- [x] `v0.4.0` engineering checkpoint is approved
 
 ## Release R3 — `v0.5.0` Trust and Correctness
 
-- [ ] `R3-T1` — Create complete, deterministic cache fingerprints
-- [ ] `R3-T2` — Validate model output and compute urgency in code
-- [ ] `R3-T3` — Make `doctor` communicate failures through the process status
-- [ ] `R3-T4` — Harden privacy and provider-boundary behavior
+- [x] `R3-T1` — Create complete, deterministic cache fingerprints
+- [x] `R3-T2` — Validate model output and compute urgency in code
+- [x] `R3-T3` — Make `doctor` communicate failures through the process status
+- [x] `R3-T4` — Harden privacy and provider-boundary behavior
 
 ### R3 exit gate
 
-- [ ] Cache invalidation covers all prompt inputs
-- [ ] Invalid focus output is rejected and urgency is deterministic
-- [ ] Doctor exit status and privacy regression tests pass
-- [ ] `v0.5.0` engineering checkpoint is approved
+- [x] Cache invalidation covers all prompt inputs
+- [x] Invalid focus output is rejected and urgency is deterministic
+- [x] Doctor exit status and privacy regression tests pass
+- [x] `v0.5.0` engineering checkpoint is approved
 
 ## Release R4 — `v0.6.0` Testable CLI
 
-- [ ] `R4-T1` — Improve documented error paths and technical documentation
-- [ ] `R4-T2` — Add deterministic fixture repositories and command test seams
-- [ ] `R4-T3` — Protect public command output with golden tests
+- [x] `R4-T1` — Improve documented error paths and technical documentation
+- [x] `R4-T2` — Add deterministic fixture repositories and command test seams
+- [x] `R4-T3` — Protect public command output with golden tests
 
 ### R4 exit gate
 
-- [ ] Documentation matches implementation and help output
-- [ ] Fixture tests are network-free and isolated
-- [ ] Public command golden tests pass
-- [ ] `v0.6.0` engineering checkpoint is approved
+- [x] Documentation matches implementation and help output
+- [x] Fixture tests are network-free and isolated
+- [x] Public command golden tests pass
+- [x] `v0.6.0` engineering checkpoint is approved
 
 ## Release R5 — `v0.7.0` Release Candidate
 
-- [ ] `R5-T1` — Add Windows CI, race checks, and release verification
+- [x] `R5-T1` — Add Windows CI, race checks, and release verification
 
 ### R5 exit gate
 
