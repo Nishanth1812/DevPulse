@@ -68,13 +68,12 @@ func runFocus(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "focus", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	model := resolveModel("focus", false)
 
 	// Cache key is a hash of every repo's HEAD so the focus ranking invalidates
 	// when any registered repo moves.
 	var keyParts []string
 	for _, rd := range repoDataList {
-		keyParts = append(keyParts, rd.Name, rd.Branch, rd.HeadSHA, rd.PlanSummary, model)
+		keyParts = append(keyParts, rd.Name, rd.HeadSHA)
 	}
 	focusKey := cache.Hash(keyParts...)
 

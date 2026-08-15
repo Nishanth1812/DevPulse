@@ -90,8 +90,7 @@ func runResume(cmd *cobra.Command, args []string) error {
 		logger.Log("WARN", "resume", "cache_unavailable: "+cacheErr.Error())
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
-	model := resolveModel("resume", true)
-	cacheKey := cache.Hash(repoData.Name, repoData.Branch, repoData.HeadSHA, repoData.PlanSummary, repoData.Notes, since, fmt.Sprintf("%t", redactDiff), model)
+	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, since, fmt.Sprintf("%t", redactDiff))
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "resume",

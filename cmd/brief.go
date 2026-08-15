@@ -79,7 +79,7 @@ func runRepositoryBrief(cmd *cobra.Command, query string) error {
 	}
 	cacheMaxAge := time.Duration(manager.CacheDurationHours()) * time.Hour
 	model := resolveModel("brief", false)
-	cacheKey := cache.Hash(repoData.Name, repoData.Branch, repoData.HeadSHA, repoData.PlanSummary, repoData.Notes, fmt.Sprintf("%t", redactDiff), model)
+	cacheKey := cache.Hash(repoData.HeadSHA, repoData.PlanSummary, repoData.Notes, fmt.Sprintf("%t", redactDiff), model)
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "brief",

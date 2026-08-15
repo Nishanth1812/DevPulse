@@ -90,8 +90,7 @@ func runWhy(cmd *cobra.Command, args []string) error {
 	if len(commits) > 0 {
 		newestSHA = commits[len(commits)-1].SHA
 	}
-	model := resolveModel("why", false)
-	cacheKey := cache.Hash(repoName, filePath, newestSHA, fmt.Sprintf("%t", redactDiff), model)
+	cacheKey := cache.Hash(repoName, filePath, newestSHA, fmt.Sprintf("%t", redactDiff))
 
 	data, err := ai.Run(cmd.Context(), ai.RunOptions{
 		Command:     "why",
