@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	git "github.com/go-git/go-git/v5"
@@ -15,19 +14,9 @@ func setConfigEnv(t *testing.T, path string) {
 	t.Setenv(ConfigEnv, path)
 }
 
-func setTempConfig(t *testing.T) string {
-	t.Helper()
-	home := t.TempDir()
-	path := filepath.Join(home, "devpulse", "config.toml")
-	setConfigEnv(t, path)
-	return path
-}
-
 func TestWorkspaceBaseDirDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	setConfigEnv(t, "")
 	base, err := WorkspaceBaseDir()
 	if err != nil {
 		t.Fatalf("WorkspaceBaseDir: %v", err)
@@ -54,7 +43,6 @@ func TestWorkspaceBaseDirFollowsConfig(t *testing.T) {
 }
 
 func TestRegisterRepositoryRejectsNonGitDir(t *testing.T) {
-	setTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -83,7 +71,6 @@ func TestRegisterRepositoryRejectsNonGitDir(t *testing.T) {
 }
 
 func TestRegisterRepositoryRejectsMissingPath(t *testing.T) {
-	setTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -94,7 +81,6 @@ func TestRegisterRepositoryRejectsMissingPath(t *testing.T) {
 }
 
 func TestSaveConfigRoundTrip(t *testing.T) {
-	setTempConfig(t)
 	m, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -117,7 +103,6 @@ func TestSaveConfigRoundTrip(t *testing.T) {
 func TestSaveIsAtomic(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
 	setConfigEnv(t, filepath.Join(home, "devpulse", "config.toml"))
 
 	m, err := Load()
@@ -137,16 +122,13 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("temporary file left behind after save: %v", err)
 	}
 
-	// Config must have restrictive permissions. Windows has no POSIX
-	// permission bits (Go reports 0666), so enforce this only on POSIX.
-	if runtime.GOOS != "windows" {
-		info, err := os.Stat(m.ConfigPath())
-		if err != nil {
-			t.Fatalf("stat config: %v", err)
-		}
-		if perm := info.Mode().Perm(); perm != 0o600 {
-			t.Fatalf("config permissions = %o, want 600", perm)
-		}
+	// Config must have restrictive permissions.
+	info, err := os.Stat(m.ConfigPath())
+	if err != nil {
+		t.Fatalf("stat config: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("config permissions = %o, want 600", perm)
 	}
 
 	// The saved file must still parse.

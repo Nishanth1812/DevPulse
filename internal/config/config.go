@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -94,7 +93,7 @@ func (m *Manager) Save() error {
 	if err := os.WriteFile(tmp, buf.Bytes(), filePermission); err != nil {
 		return fmt.Errorf("write config file: %w", err)
 	}
-	if err := setPermissions(tmp, filePermission); err != nil {
+	if err := os.Chmod(tmp, filePermission); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("set config permissions: %w", err)
 	}
@@ -198,7 +197,7 @@ func ensureWorkspace(baseDir string, configPath string) error {
 		if err := os.MkdirAll(dir, dirPermission); err != nil {
 			return fmt.Errorf("create directory %q: %w", dir, err)
 		}
-		if err := setPermissions(dir, dirPermission); err != nil {
+		if err := os.Chmod(dir, dirPermission); err != nil {
 			return fmt.Errorf("set directory permissions for %q: %w", dir, err)
 		}
 	}
@@ -210,16 +209,4 @@ func ensureWorkspace(baseDir string, configPath string) error {
 	}
 
 	return nil
-}
-
-// setPermissions applies POSIX permissions where they are meaningful. Windows
-// does not expose the same permission-bit model, and Chmod can fail for an
-// existing user-owned directory even though the directory is usable. The
-// restrictive defaults passed to MkdirAll/WriteFile still apply on POSIX, and
-// Windows uses its native ACL/credential-manager protections instead.
-func setPermissions(path string, mode os.FileMode) error {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	return os.Chmod(path, mode)
 }
